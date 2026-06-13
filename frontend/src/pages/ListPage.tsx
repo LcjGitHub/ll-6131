@@ -1,4 +1,5 @@
 import {
+  Badge,
   Box,
   Button,
   Heading,
@@ -110,6 +111,7 @@ export default function ListPage() {
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader>书名</Table.ColumnHeader>
+                <Table.ColumnHeader>标签</Table.ColumnHeader>
                 <Table.ColumnHeader>页码</Table.ColumnHeader>
                 <Table.ColumnHeader>原文</Table.ColumnHeader>
                 <Table.ColumnHeader>眉批内容</Table.ColumnHeader>
@@ -121,6 +123,19 @@ export default function ListPage() {
               {items.map((item) => (
                 <Table.Row key={item.id}>
                   <Table.Cell fontWeight="medium">{item.book_title}</Table.Cell>
+                  <Table.Cell>
+                    <HStack gap={1} wrap="wrap">
+                      {item.tags.length > 0 ? (
+                        item.tags.map((tag) => (
+                          <Badge key={tag.id} colorPalette="teal" variant="subtle">
+                            {tag.name}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Text color="gray.400">—</Text>
+                      )}
+                    </HStack>
+                  </Table.Cell>
                   <Table.Cell>{item.page_number}</Table.Cell>
                   <Table.Cell maxW="200px">
                     <Text lineClamp={2}>{item.original_text}</Text>

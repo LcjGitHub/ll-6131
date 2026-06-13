@@ -2,7 +2,13 @@
 
 from sqlalchemy.orm import Session
 
-from models import Book, Marginalia
+from models import Book, Marginalia, Tag
+
+TAG_SEED_DATA: list[str] = [
+    "文学",
+    "考证",
+    "版本对比",
+]
 
 BOOK_SEED_DATA: list[dict[str, str | int | None]] = [
     {
@@ -109,5 +115,16 @@ def seed_marginalia(db: Session) -> None:
                 purchase_channel=item.get("purchase_channel"),
             )
         )
+
+    db.commit()
+
+
+def seed_tags(db: Session) -> None:
+    """若表为空则写入预置标签。"""
+    if db.query(Tag).count() > 0:
+        return
+
+    for name in TAG_SEED_DATA:
+        db.add(Tag(name=name))
 
     db.commit()

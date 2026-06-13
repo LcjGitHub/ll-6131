@@ -1,9 +1,31 @@
 """眉批摘录 ORM 模型。"""
 
-from sqlalchemy import Integer, String, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Table, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
+
+marginalia_tag = Table(
+    "marginalia_tag",
+    Base.metadata,
+    Column("marginalia_id", Integer, ForeignKey("marginalia.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Tag(Base):
+    """标签分类表。"""
+
+    __tablename__ = "tags"
+    __table_args__ = (UniqueConstraint("name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+
+    marginalia: Mapped[list["Marginalia"]] = relationship(
+        secondary=marginalia_tag,
+        back_populates="tags",
+    )
 
 
 class Book(Base):
@@ -38,3 +60,7 @@ class Marginalia(Base):
     purchase_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     book: Mapped[Book] = relationship(back_populates="marginalia")
+    tags: Mapped[list["Tag"]] = relationship(
+        secondary=marginalia_tag,
+        back_populates="marginalia",
+    )

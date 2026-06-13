@@ -1,5 +1,7 @@
 /** 眉批摘录类型定义 */
 
+import type { Tag } from "./tag";
+
 export interface Marginalia {
   id: number;
   book_id: number;
@@ -8,6 +10,7 @@ export interface Marginalia {
   original_text: string;
   marginalia_content: string;
   purchase_channel: string | null;
+  tags: Tag[];
 }
 
 export interface MarginaliaFormData {
@@ -16,4 +19,5 @@ export interface MarginaliaFormData {
   original_text: string;
   marginalia_content: string;
   purchase_channel: string;
+  tag_ids: number[];
 }

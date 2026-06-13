@@ -3,6 +3,17 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TagCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="标签名称")
+
+
+class TagResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
 class BookBase(BaseModel):
     """书目公共字段。"""
 
@@ -49,22 +60,20 @@ class MarginaliaBase(BaseModel):
 
 
 class MarginaliaCreate(MarginaliaBase):
-    """创建摘录。"""
-
     book_id: int = Field(..., gt=0, description="所属书目 ID")
+    tag_ids: list[int] = Field(default_factory=list, description="标签 ID 列表")
 
 
 class MarginaliaUpdate(MarginaliaBase):
-    """更新摘录。"""
-
     book_id: int = Field(..., gt=0, description="所属书目 ID")
+    tag_ids: list[int] = Field(default_factory=list, description="标签 ID 列表")
 
 
 class MarginaliaResponse(MarginaliaBase):
-    """摘录响应。"""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     book_id: int
     book_title: str
+    tags: list[TagResponse] = Field(default_factory=list, description="关联标签")

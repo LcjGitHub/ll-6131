@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import Base, SessionLocal, engine, get_db
-from models import Book, Marginalia
+from models import Book, Marginalia, Tag, marginalia_tag
 from schemas import (
     BookCreate,
     BookOption,
@@ -17,8 +17,10 @@ from schemas import (
     MarginaliaCreate,
     MarginaliaResponse,
     MarginaliaUpdate,
+    TagCreate,
+    TagResponse,
 )
-from seed import seed_books, seed_marginalia
+from seed import seed_books, seed_marginalia, seed_tags
 
 app = FastAPI(title="旧书页眉批摘录库", version="0.1.0")
 
@@ -39,6 +41,7 @@ def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        seed_tags(db)
         seed_books(db)
         seed_marginalia(db)
     finally:
@@ -152,7 +155,6 @@ def delete_book(item_id: int, db: DbSession) -> None:
 
 
 def _marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
-    """将 Marginalia ORM 对象转为响应模型。"""
     return MarginaliaResponse(
         id=item.id,
         book_id=item.book_id,
@@ -161,6 +163,7 @@ def _marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
         original_text=item.original_text,
         marginalia_content=item.marginalia_content,
         purchase_channel=item.purchase_channel,
+        tags=[TagResponse(id=t.id, name=t.name) for t in item.tags],
     )
 
 
@@ -169,7 +172,6 @@ def list_marginalia(
     db: DbSession,
     book_title: str | None = Query(None, description="按书名模糊搜索"),
 ) -> list[MarginaliaResponse]:
-    """获取摘录列表，支持书名搜索。"""
     query = db.query(Marginalia)
     if book_title:
         query = query.filter(Marginalia.book_title.contains(book_title))
@@ -188,10 +190,12 @@ def get_marginalia(item_id: int, db: DbSession) -> MarginaliaResponse:
 
 @app.post("/api/marginalia", response_model=MarginaliaResponse, status_code=201)
 def create_marginalia(payload: MarginaliaCreate, db: DbSession) -> MarginaliaResponse:
-    """新增摘录，需指定所属书目 ID。"""
     book = db.get(Book, payload.book_id)
     if book is None:
         raise HTTPException(status_code=400, detail="指定的书目不存在")
+
+    tag_ids = payload.tag_ids or []
+    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
 
     item = Marginalia(
         book_id=payload.book_id,
@@ -200,6 +204,7 @@ def create_marginalia(payload: MarginaliaCreate, db: DbSession) -> MarginaliaRes
         original_text=payload.original_text,
         marginalia_content=payload.marginalia_content,
         purchase_channel=payload.purchase_channel,
+        tags=tags,
     )
     db.add(item)
     db.commit()
@@ -213,7 +218,6 @@ def update_marginalia(
     payload: MarginaliaUpdate,
     db: DbSession,
 ) -> MarginaliaResponse:
-    """更新摘录，支持更换所属书目。"""
     item = db.get(Marginalia, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="摘录不存在")
@@ -229,6 +233,10 @@ def update_marginalia(
     item.marginalia_content = payload.marginalia_content
     item.purchase_channel = payload.purchase_channel
 
+    tag_ids = payload.tag_ids if payload.tag_ids is not None else []
+    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
+    item.tags = tags
+
     db.commit()
     db.refresh(item)
     return _marginalia_to_response(item)
@@ -236,10 +244,63 @@ def update_marginalia(
 
 @app.delete("/api/marginalia/{item_id}", status_code=204)
 def delete_marginalia(item_id: int, db: DbSession) -> None:
-    """删除摘录。"""
     item = db.get(Marginalia, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="摘录不存在")
 
     db.delete(item)
     db.commit()
+
+
+@app.get("/api/tags", response_model=list[TagResponse])
+def list_tags(db: DbSession) -> list[TagResponse]:
+    items = db.query(Tag).order_by(Tag.id.asc()).all()
+    return items
+
+
+@app.post("/api/tags", response_model=TagResponse, status_code=201)
+def create_tag(payload: TagCreate, db: DbSession) -> TagResponse:
+    existing = db.query(Tag).filter(Tag.name == payload.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="标签名称已存在")
+    item = Tag(name=payload.name)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.delete("/api/tags/{item_id}", status_code=204)
+def delete_tag(item_id: int, db: DbSession) -> None:
+    item = db.get(Tag, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="标签不存在")
+    db.execute(marginalia_tag.delete().where(marginalia_tag.c.tag_id == item_id))
+    db.delete(item)
+    db.commit()
+
+
+@app.post("/api/marginalia/{item_id}/tags/{tag_id}", status_code=204)
+def bind_tag(item_id: int, tag_id: int, db: DbSession) -> None:
+    marginalia_item = db.get(Marginalia, item_id)
+    if marginalia_item is None:
+        raise HTTPException(status_code=404, detail="摘录不存在")
+    tag = db.get(Tag, tag_id)
+    if tag is None:
+        raise HTTPException(status_code=404, detail="标签不存在")
+    if tag not in marginalia_item.tags:
+        marginalia_item.tags.append(tag)
+        db.commit()
+
+
+@app.delete("/api/marginalia/{item_id}/tags/{tag_id}", status_code=204)
+def unbind_tag(item_id: int, tag_id: int, db: DbSession) -> None:
+    marginalia_item = db.get(Marginalia, item_id)
+    if marginalia_item is None:
+        raise HTTPException(status_code=404, detail="摘录不存在")
+    tag = db.get(Tag, tag_id)
+    if tag is None:
+        raise HTTPException(status_code=404, detail="标签不存在")
+    if tag in marginalia_item.tags:
+        marginalia_item.tags.remove(tag)
+        db.commit()

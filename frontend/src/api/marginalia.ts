@@ -21,6 +21,7 @@ export async function createMarginalia(
   const { data } = await apiClient.post<Marginalia>("/marginalia", {
     ...payload,
     purchase_channel: payload.purchase_channel || null,
+    tag_ids: payload.tag_ids || [],
   });
   return data;
 }
@@ -32,6 +33,7 @@ export async function updateMarginalia(
   const { data } = await apiClient.put<Marginalia>(`/marginalia/${id}`, {
     ...payload,
     purchase_channel: payload.purchase_channel || null,
+    tag_ids: payload.tag_ids || [],
   });
   return data;
 }

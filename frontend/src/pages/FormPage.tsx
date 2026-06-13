@@ -20,8 +20,10 @@ import {
   fetchMarginalia,
   updateMarginalia,
 } from "../api/marginalia";
+import { fetchTagList } from "../api/tag";
 import type { BookOption } from "../types/book";
 import type { MarginaliaFormData } from "../types/marginalia";
+import type { Tag } from "../types/tag";
 
 const defaultValues: MarginaliaFormData = {
   book_id: 0,
@@ -29,6 +31,7 @@ const defaultValues: MarginaliaFormData = {
   original_text: "",
   marginalia_content: "",
   purchase_channel: "",
+  tag_ids: [],
 };
 
 export default function FormPage() {
@@ -37,6 +40,7 @@ export default function FormPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(isEdit);
   const [bookOptions, setBookOptions] = useState<BookOption[]>([]);
+  const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +55,7 @@ export default function FormPage() {
   } = useForm<MarginaliaFormData>({ defaultValues });
 
   const bookId = watch("book_id");
+  const selectedTagIds = watch("tag_ids");
 
   const bookCollection = useMemo(
     () =>
@@ -63,16 +68,31 @@ export default function FormPage() {
     [bookOptions],
   );
 
+  const tagCollection = useMemo(
+    () =>
+      createListCollection({
+        items: tagOptions.map((opt) => ({
+          value: String(opt.id),
+          label: opt.name,
+        })),
+      }),
+    [tagOptions],
+  );
+
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const data = await fetchBookOptions();
-        setBookOptions(data);
-        if (data.length > 0 && !isEdit) {
-          setValue("book_id", data[0].id);
+        const [books, tags] = await Promise.all([
+          fetchBookOptions(),
+          fetchTagList(),
+        ]);
+        setBookOptions(books);
+        setTagOptions(tags);
+        if (books.length > 0 && !isEdit) {
+          setValue("book_id", books[0].id);
         }
       } catch {
-        setError("加载书目列表失败");
+        setError("加载选项失败");
       } finally {
         setOptionsLoading(false);
       }
@@ -96,6 +116,7 @@ export default function FormPage() {
           original_text: item.original_text,
           marginalia_content: item.marginalia_content,
           purchase_channel: item.purchase_channel ?? "",
+          tag_ids: item.tags.map((t) => t.id),
         });
       } catch {
         setError("加载摘录失败");
@@ -188,6 +209,40 @@ export default function FormPage() {
           {errors.book_id && (
             <Field.ErrorText>{errors.book_id.message}</Field.ErrorText>
           )}
+        </Field.Root>
+
+        <Field.Root mb={4}>
+          <Field.Label>标签</Field.Label>
+          <Select.Root
+            collection={tagCollection}
+            multiple
+            value={(selectedTagIds ?? []).map(String)}
+            onValueChange={(e) =>
+              setValue(
+                "tag_ids",
+                e.value.map(Number),
+              )
+            }
+          >
+            <Select.HiddenSelect />
+            <Select.Control>
+              <Select.Trigger>
+                <Select.ValueText placeholder="选择标签（可多选）" />
+              </Select.Trigger>
+              <Select.IndicatorGroup>
+                <Select.Indicator />
+              </Select.IndicatorGroup>
+            </Select.Control>
+            <Select.Positioner>
+              <Select.Content>
+                {tagCollection.items.map((item) => (
+                  <Select.Item key={item.value} item={item}>
+                    {item.label}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Positioner>
+          </Select.Root>
         </Field.Root>
 
         <Field.Root invalid={Boolean(errors.page_number)} mb={4}>

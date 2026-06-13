@@ -4,8 +4,8 @@ import BookFormPage from "./pages/BookFormPage";
 import BookListPage from "./pages/BookListPage";
 import FormPage from "./pages/FormPage";
 import ListPage from "./pages/ListPage";
+import TagManagePage from "./pages/TagManagePage";
 
-/** 应用根组件：布局 + 路由 */
 export default function App() {
   return (
     <Box minH="100vh" bg="gray.50">
@@ -23,6 +23,9 @@ export default function App() {
                 <RouterLink to="/new">新增摘录</RouterLink>
               </Link>
               <Link asChild color="teal.600" fontWeight="medium">
+                <RouterLink to="/tags">标签管理</RouterLink>
+              </Link>
+              <Link asChild color="teal.600" fontWeight="medium">
                 <RouterLink to="/books">书目管理</RouterLink>
               </Link>
             </HStack>
@@ -35,6 +38,7 @@ export default function App() {
           <Route path="/" element={<ListPage />} />
           <Route path="/new" element={<FormPage />} />
           <Route path="/edit/:id" element={<FormPage />} />
+          <Route path="/tags" element={<TagManagePage />} />
           <Route path="/books" element={<BookListPage />} />
           <Route path="/books/new" element={<BookFormPage />} />
           <Route path="/books/edit/:id" element={<BookFormPage />} />
