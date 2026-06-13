@@ -2,13 +2,13 @@
 
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, date
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
@@ -29,7 +29,7 @@ from schemas import (
     TagCreate,
     TagResponse,
 )
-from seed import seed_books, seed_marginalia, seed_tags
+from seed import MARGINALIA_SEED_DATA, seed_books, seed_marginalia, seed_tags
 
 app = FastAPI(title="旧书页眉批摘录库", version="0.1.0")
 
@@ -44,15 +44,60 @@ app.add_middleware(
 DbSession = Annotated[Session, Depends(get_db)]
 
 
+def _ensure_marginalia_columns() -> None:
+    """为已有的 marginalia 表自动补加 is_favorite 和 entry_date 列（列不存在时执行）。"""
+    with engine.connect() as conn:
+        cols = conn.execute(text("PRAGMA table_info(marginalia)")).fetchall()
+        col_names = {c[1] for c in cols}
+
+        if "is_favorite" not in col_names:
+            conn.execute(text("ALTER TABLE marginalia ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0"))
+        if "entry_date" not in col_names:
+            conn.execute(
+                text("ALTER TABLE marginalia ADD COLUMN entry_date DATE NOT NULL DEFAULT :d")
+            ).bindparams(d=date.today().isoformat())
+        conn.commit()
+
+
+def _patch_seed_data_for_existing_records(db: Session) -> None:
+    """按书名+页码为已有5条示例摘录补填种子配置中的录入日期和收藏状态。"""
+    for seed_item in MARGINALIA_SEED_DATA:
+        book_title = seed_item["book_title"]
+        page_number = seed_item["page_number"]
+        entry_date = seed_item["entry_date"]
+        is_favorite = seed_item.get("is_favorite", False)
+
+        record = (
+            db.query(Marginalia)
+            .filter(
+                Marginalia.book_title == book_title,
+                Marginalia.page_number == page_number,
+            )
+            .first()
+        )
+        if record is not None:
+            updated = False
+            if record.entry_date != entry_date:
+                record.entry_date = entry_date
+                updated = True
+            if record.is_favorite != is_favorite:
+                record.is_favorite = is_favorite
+                updated = True
+            if updated:
+                db.commit()
+
+
 @app.on_event("startup")
 def on_startup() -> None:
-    """启动时建表并写入 seed 数据。"""
+    """启动时建表、补列并写入 seed 数据。"""
     Base.metadata.create_all(bind=engine)
+    _ensure_marginalia_columns()
     db = SessionLocal()
     try:
         seed_tags(db)
         seed_books(db)
         seed_marginalia(db)
+        _patch_seed_data_for_existing_records(db)
     finally:
         db.close()
 
@@ -233,7 +278,7 @@ def export_marginalia(db: DbSession) -> StreamingResponse:
     buffer = io.StringIO()
     buffer.write("\ufeff")
     writer = csv.writer(buffer)
-    writer.writerow(["书名", "页码", "原文", "眉批内容", "购入渠道"])
+    writer.writerow(["书名", "页码", "原文", "眉批内容", "购入渠道", "是否收藏", "录入日期"])
 
     for item in items:
         writer.writerow([
@@ -242,6 +287,8 @@ def export_marginalia(db: DbSession) -> StreamingResponse:
             item.original_text,
             item.marginalia_content,
             item.purchase_channel or "",
+            "是" if item.is_favorite else "否",
+            item.entry_date.isoformat() if hasattr(item.entry_date, "isoformat") else str(item.entry_date),
         ])
 
     buffer.seek(0)

@@ -191,7 +191,7 @@ export default function FormPage() {
             collection={bookCollection}
             value={bookId ? [String(bookId)] : []}
             onValueChange={(e) =>
-              setValue("book_id", Number(e.value[0]) || 0)
+              setValue("book_id", Number((e.value ?? [])[0]) || 0)
             }
             positioning={{ placement: "bottom-start", sameWidth: true }}
           >
@@ -219,7 +219,7 @@ export default function FormPage() {
           )}
         </Field.Root>
 
-        <Box position="relative" zIndex={10} mb={4}>
+        <Field.Root position="relative" zIndex={10} mb={4}>
           <Field.Label mb={1}>标签</Field.Label>
           <Select.Root
             collection={tagCollection}
@@ -228,7 +228,7 @@ export default function FormPage() {
             onValueChange={(e) =>
               setValue(
                 "tag_ids",
-                e.value.map(Number),
+                (e.value ?? []).map(Number),
               )
             }
             positioning={{ placement: "bottom-start", sameWidth: true }}
@@ -252,7 +252,7 @@ export default function FormPage() {
               </Select.Content>
             </Select.Positioner>
           </Select.Root>
-        </Box>
+        </Field.Root>
 
         <Field.Root invalid={Boolean(errors.page_number)} mb={4}>
           <Field.Label>页码</Field.Label>

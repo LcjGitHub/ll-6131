@@ -103,11 +103,14 @@ export default function ListPage() {
     setTogglingIds((prev) => new Set(prev).add(item.id));
     try {
       await toggleFavorite(item.id, nextFavorite);
-      setItems((prev) =>
-        prev.map((i) =>
+      setItems((prev) => {
+        if (onlyFavorites && !nextFavorite) {
+          return prev.filter((i) => i.id !== item.id);
+        }
+        return prev.map((i) =>
           i.id === item.id ? { ...i, is_favorite: nextFavorite } : i,
-        ),
-      );
+        );
+      });
     } catch {
       setError("切换收藏失败");
     } finally {
@@ -173,21 +176,33 @@ export default function ListPage() {
         borderWidth="1px"
         mb={4}
       >
-        <HStack justify="flex-end" align="center">
-          <Text fontSize="sm" color="gray.600">
+        <Box
+          display="flex"
+          justifyContent="flex-end"
+          alignItems="center"
+          cursor="pointer"
+          userSelect="none"
+          onClick={() => handleToggleFavoriteFilter(!onlyFavorites)}
+          paddingX={2}
+          paddingY={1}
+          borderRadius="md"
+          _hover={{ bg: "gray.50" }}
+        >
+          <Text fontSize="sm" color="gray.600" marginRight={3} pointerEvents="none">
             仅看收藏
           </Text>
           <Switch.Root
             checked={onlyFavorites}
             onCheckedChange={(e: { checked: boolean }) => handleToggleFavoriteFilter(e.checked)}
             colorPalette="yellow"
+            padding={2}
           >
             <Switch.HiddenInput />
             <Switch.Control>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Root>
-        </HStack>
+        </Box>
       </Box>
 
       <HStack mb={6} gap={3} wrap="wrap">
