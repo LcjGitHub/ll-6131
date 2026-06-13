@@ -205,24 +205,23 @@ export default function ListPage() {
     }
   };
 
-  const handleToggleSelect = (id: number) => {
+  const handleToggleSelect = (id: number, checked: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
+      if (checked) {
         next.add(id);
+      } else {
+        next.delete(id);
       }
       return next;
     });
   };
 
-  const handleToggleSelectAll = () => {
-    const allSelected = items.every((item) => selectedIds.has(item.id));
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (checked) {
       setSelectedIds(new Set(items.map((item) => item.id)));
+    } else {
+      setSelectedIds(new Set());
     }
   };
 
@@ -345,20 +344,6 @@ export default function ListPage() {
         </Box>
       </Box>
 
-      {!loading && items.length > 0 && (
-        <HStack mb={4}>
-          <Button
-            colorPalette="red"
-            onClick={() => void handleBatchDelete()}
-            loading={batchDeleting}
-            loadingText="删除中…"
-            disabled={selectedIds.size === 0}
-          >
-            批量删除 {selectedIds.size > 0 && `(${selectedIds.size})`}
-          </Button>
-        </HStack>
-      )}
-
       <HStack mb={6} gap={3} wrap="wrap">
         <Input
           placeholder="按书名搜索…"
@@ -404,14 +389,33 @@ export default function ListPage() {
       )}
 
       {!loading && items.length > 0 && (
-        <Box bg="white" borderRadius="md" borderWidth="1px" overflowX="auto">
+        <Box>
+          <HStack mb={2}>
+            <Button
+              colorPalette="red"
+              onClick={() => void handleBatchDelete()}
+              loading={batchDeleting}
+              loadingText="删除中…"
+              disabled={selectedIds.size === 0}
+              _disabled={{
+                bg: "gray.200",
+                color: "gray.500",
+                cursor: "not-allowed",
+                opacity: 1,
+                _hover: { bg: "gray.200" },
+              }}
+            >
+              批量删除 {selectedIds.size > 0 && `(${selectedIds.size})`}
+            </Button>
+          </HStack>
+          <Box bg="white" borderRadius="md" borderWidth="1px" overflowX="auto">
           <Table.Root size="sm" striped>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader width="50px" textAlign="center">
                   <Checkbox.Root
                     checked={items.length > 0 && items.every((item) => selectedIds.has(item.id))}
-                    onCheckedChange={() => handleToggleSelectAll()}
+                    onCheckedChange={(e) => handleToggleSelectAll(Boolean(e.checked))}
                     disabled={items.length === 0}
                   >
                     <Checkbox.HiddenInput />
@@ -437,7 +441,7 @@ export default function ListPage() {
                   <Table.Cell textAlign="center">
                     <Checkbox.Root
                       checked={selectedIds.has(item.id)}
-                      onCheckedChange={() => handleToggleSelect(item.id)}
+                      onCheckedChange={(e) => handleToggleSelect(item.id, Boolean(e.checked))}
                     >
                       <Checkbox.HiddenInput />
                       <Checkbox.Control />
@@ -519,6 +523,7 @@ export default function ListPage() {
               ))}
             </Table.Body>
           </Table.Root>
+          </Box>
         </Box>
       )}
 
