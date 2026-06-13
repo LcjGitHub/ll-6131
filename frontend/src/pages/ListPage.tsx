@@ -5,6 +5,7 @@ import {
   Heading,
   HStack,
   Input,
+  Link,
   Spinner,
   Table,
   Text,
@@ -124,7 +125,17 @@ export default function ListPage() {
             <Table.Body>
               {items.map((item) => (
                 <Table.Row key={item.id}>
-                  <Table.Cell fontWeight="medium">{item.book_title}</Table.Cell>
+                  <Table.Cell fontWeight="medium">
+                    <Link
+                      asChild
+                      color="gray.800"
+                      _hover={{ color: "teal.600", textDecoration: "underline" }}
+                    >
+                      <RouterLink to={`/detail/${item.id}`}>
+                        {item.book_title}
+                      </RouterLink>
+                    </Link>
+                  </Table.Cell>
                   <Table.Cell minW="120px">
                     {item.tags.length > 0 ? (
                       <Wrap gap={1}>

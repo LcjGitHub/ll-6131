@@ -2,6 +2,7 @@ import { Box, Container, Heading, HStack, Link } from "@chakra-ui/react";
 import { Link as RouterLink, Route, Routes } from "react-router-dom";
 import BookFormPage from "./pages/BookFormPage";
 import BookListPage from "./pages/BookListPage";
+import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import ListPage from "./pages/ListPage";
 import StatsOverviewPage from "./pages/StatsOverviewPage";
@@ -41,6 +42,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ListPage />} />
           <Route path="/new" element={<FormPage />} />
+          <Route path="/detail/:id" element={<DetailPage />} />
           <Route path="/edit/:id" element={<FormPage />} />
           <Route path="/tags" element={<TagManagePage />} />
           <Route path="/books" element={<BookListPage />} />
