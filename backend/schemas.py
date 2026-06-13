@@ -69,6 +69,20 @@ class MarginaliaUpdate(MarginaliaBase):
     tag_ids: list[int] = Field(default_factory=list, description="标签 ID 列表")
 
 
+class ChannelStat(BaseModel):
+    channel: str = Field(..., description="购入渠道名称")
+    count: int = Field(..., description="该渠道摘录条数")
+    percentage: float = Field(..., description="该渠道占比（0-100）")
+
+
+class StatsSummaryResponse(BaseModel):
+    total_marginalia: int = Field(..., description="摘录总条数")
+    distinct_book_count: int = Field(..., description="不同书名数量")
+    channel_distribution: list[ChannelStat] = Field(
+        default_factory=list, description="各购入渠道分布"
+    )
+
+
 class MarginaliaResponse(MarginaliaBase):
 
     model_config = ConfigDict(from_attributes=True)
