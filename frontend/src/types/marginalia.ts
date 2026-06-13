@@ -25,3 +25,10 @@ export interface MarginaliaFormData {
   entry_date: string;
   tag_ids: number[];
 }
+
+export interface PaginatedMarginalia {
+  items: Marginalia[];
+  total: number;
+  page: number;
+  page_size: number;
+}

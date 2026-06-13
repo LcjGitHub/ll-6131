@@ -25,6 +25,7 @@ from schemas import (
     MarginaliaCreate,
     MarginaliaResponse,
     MarginaliaUpdate,
+    PaginatedMarginaliaResponse,
     StatsSummaryResponse,
     TagCreate,
     TagResponse,
@@ -250,13 +251,15 @@ def _marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
     )
 
 
-@app.get("/api/marginalia", response_model=list[MarginaliaResponse])
+@app.get("/api/marginalia", response_model=PaginatedMarginaliaResponse)
 def list_marginalia(
     db: DbSession,
     book_title: str | None = Query(None, description="按书名模糊搜索"),
     content_keyword: str | None = Query(None, description="按眉批内容模糊搜索"),
     is_favorite: bool | None = Query(None, description="仅看收藏"),
-) -> list[MarginaliaResponse]:
+    page: int = Query(1, ge=1, description="页码，从1开始"),
+    page_size: int = Query(10, ge=1, le=100, description="每页条数"),
+) -> PaginatedMarginaliaResponse:
     query = db.query(Marginalia)
     if book_title:
         like = f"%{book_title}%"
@@ -266,8 +269,14 @@ def list_marginalia(
         query = query.filter(Marginalia.marginalia_content.ilike(like))
     if is_favorite is not None:
         query = query.filter(Marginalia.is_favorite == is_favorite)
-    items = query.order_by(Marginalia.id.desc()).all()
-    return [_marginalia_to_response(i) for i in items]
+    total = query.count()
+    items = query.order_by(Marginalia.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedMarginaliaResponse(
+        items=[_marginalia_to_response(i) for i in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @app.get("/api/marginalia/export")

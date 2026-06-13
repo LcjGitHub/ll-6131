@@ -94,3 +94,10 @@ class MarginaliaResponse(MarginaliaBase):
     book_id: int
     book_title: str
     tags: list[TagResponse] = Field(default_factory=list, description="关联标签")
+
+
+class PaginatedMarginaliaResponse(BaseModel):
+    items: list[MarginaliaResponse] = Field(..., description="当前页数据")
+    total: int = Field(..., description="总条数")
+    page: int = Field(..., description="当前页码")
+    page_size: int = Field(..., description="每页条数")

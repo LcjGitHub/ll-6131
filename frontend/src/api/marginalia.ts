@@ -1,17 +1,25 @@
-import type { Marginalia, MarginaliaFormData } from "../types/marginalia";
+import type {
+  Marginalia,
+  MarginaliaFormData,
+  PaginatedMarginalia,
+} from "../types/marginalia";
 import { apiClient } from "./client";
 
 export async function fetchMarginaliaList(
   bookTitle?: string,
   contentKeyword?: string,
   isFavorite?: boolean,
-): Promise<Marginalia[]> {
-  const params: Record<string, string | boolean> = {};
+  page: number = 1,
+  pageSize: number = 10,
+): Promise<PaginatedMarginalia> {
+  const params: Record<string, string | boolean | number> = {};
   if (bookTitle) params.book_title = bookTitle;
   if (contentKeyword) params.content_keyword = contentKeyword;
   if (isFavorite !== undefined) params.is_favorite = isFavorite;
-  const { data } = await apiClient.get<Marginalia[]>("/marginalia", {
-    params: Object.keys(params).length > 0 ? params : undefined,
+  params.page = page;
+  params.page_size = pageSize;
+  const { data } = await apiClient.get<PaginatedMarginalia>("/marginalia", {
+    params,
   });
   return data;
 }
