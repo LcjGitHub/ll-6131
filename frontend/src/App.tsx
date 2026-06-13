@@ -1,5 +1,7 @@
 import { Box, Container, Heading, HStack, Link } from "@chakra-ui/react";
 import { Link as RouterLink, Route, Routes } from "react-router-dom";
+import BookFormPage from "./pages/BookFormPage";
+import BookListPage from "./pages/BookListPage";
 import FormPage from "./pages/FormPage";
 import ListPage from "./pages/ListPage";
 
@@ -20,6 +22,9 @@ export default function App() {
               <Link asChild color="teal.600" fontWeight="medium">
                 <RouterLink to="/new">新增摘录</RouterLink>
               </Link>
+              <Link asChild color="teal.600" fontWeight="medium">
+                <RouterLink to="/books">书目管理</RouterLink>
+              </Link>
             </HStack>
           </HStack>
         </Container>
@@ -30,6 +35,9 @@ export default function App() {
           <Route path="/" element={<ListPage />} />
           <Route path="/new" element={<FormPage />} />
           <Route path="/edit/:id" element={<FormPage />} />
+          <Route path="/books" element={<BookListPage />} />
+          <Route path="/books/new" element={<BookFormPage />} />
+          <Route path="/books/edit/:id" element={<BookFormPage />} />
         </Routes>
       </Container>
     </Box>

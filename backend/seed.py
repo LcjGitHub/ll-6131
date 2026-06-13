@@ -2,9 +2,42 @@
 
 from sqlalchemy.orm import Session
 
-from models import Marginalia
+from models import Book, Marginalia
 
-SEED_DATA: list[dict[str, str | None]] = [
+BOOK_SEED_DATA: list[dict[str, str | int | None]] = [
+    {
+        "title": "红楼梦",
+        "author": "曹雪芹",
+        "edition": "己卯本抄本影印",
+        "volume_count": 4,
+    },
+    {
+        "title": "聊斋志异",
+        "author": "蒲松龄",
+        "edition": "青柯亭刻本",
+        "volume_count": 2,
+    },
+    {
+        "title": "陶庵梦忆",
+        "author": "张岱",
+        "edition": "粤雅堂丛书本",
+        "volume_count": 1,
+    },
+    {
+        "title": "世说新语",
+        "author": "刘义庆",
+        "edition": "宋绍兴八年刻本",
+        "volume_count": 3,
+    },
+    {
+        "title": "论语注疏",
+        "author": "何晏 注 / 邢昺 疏",
+        "edition": "十三经注疏本",
+        "volume_count": 2,
+    },
+]
+
+MARGINALIA_SEED_DATA: list[dict[str, str | None]] = [
     {
         "book_title": "红楼梦",
         "page_number": "32",
@@ -43,12 +76,23 @@ SEED_DATA: list[dict[str, str | None]] = [
 ]
 
 
+def seed_books(db: Session) -> None:
+    """若表为空则写入 5 条示例书目。"""
+    if db.query(Book).count() > 0:
+        return
+
+    for item in BOOK_SEED_DATA:
+        db.add(Book(**item))
+
+    db.commit()
+
+
 def seed_marginalia(db: Session) -> None:
     """若表为空则写入 5 条示例摘录。"""
     if db.query(Marginalia).count() > 0:
         return
 
-    for item in SEED_DATA:
+    for item in MARGINALIA_SEED_DATA:
         db.add(Marginalia(**item))
 
     db.commit()

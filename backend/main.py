@@ -4,12 +4,20 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import Base, SessionLocal, engine, get_db
-from models import Marginalia
-from schemas import MarginaliaCreate, MarginaliaResponse, MarginaliaUpdate
-from seed import seed_marginalia
+from models import Book, Marginalia
+from schemas import (
+    BookCreate,
+    BookResponse,
+    BookUpdate,
+    MarginaliaCreate,
+    MarginaliaResponse,
+    MarginaliaUpdate,
+)
+from seed import seed_books, seed_marginalia
 
 app = FastAPI(title="旧书页眉批摘录库", version="0.1.0")
 
@@ -30,9 +38,91 @@ def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        seed_books(db)
         seed_marginalia(db)
     finally:
         db.close()
+
+
+def _book_to_response(book: Book, db: Session) -> BookResponse:
+    """将 Book ORM 对象转为响应模型，附加摘录条数。"""
+    count = (
+        db.query(func.count(Marginalia.id))
+        .filter(Marginalia.book_title == book.title)
+        .scalar()
+        or 0
+    )
+    return BookResponse(
+        id=book.id,
+        title=book.title,
+        author=book.author,
+        edition=book.edition,
+        volume_count=book.volume_count,
+        marginalia_count=count,
+    )
+
+
+@app.get("/api/books", response_model=list[BookResponse])
+def list_books(
+    db: DbSession,
+    keyword: str | None = Query(None, description="按书名或作者模糊搜索"),
+) -> list[BookResponse]:
+    """获取书目列表，支持按书名/作者搜索，返回关联摘录条数。"""
+    query = db.query(Book)
+    if keyword:
+        like = f"%{keyword}%"
+        query = query.filter((Book.title.ilike(like)) | (Book.author.ilike(like)))
+    books = query.order_by(Book.id.desc()).all()
+    return [_book_to_response(b, db) for b in books]
+
+
+@app.get("/api/books/{item_id}", response_model=BookResponse)
+def get_book(item_id: int, db: DbSession) -> BookResponse:
+    """获取单条书目。"""
+    item = db.get(Book, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="书目不存在")
+    return _book_to_response(item, db)
+
+
+@app.post("/api/books", response_model=BookResponse, status_code=201)
+def create_book(payload: BookCreate, db: DbSession) -> BookResponse:
+    """新增书目。"""
+    item = Book(**payload.model_dump())
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return _book_to_response(item, db)
+
+
+@app.put("/api/books/{item_id}", response_model=BookResponse)
+def update_book(
+    item_id: int,
+    payload: BookUpdate,
+    db: DbSession,
+) -> BookResponse:
+    """更新书目。"""
+    item = db.get(Book, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="书目不存在")
+
+    for key, value in payload.model_dump().items():
+        setattr(item, key, value)
+
+    db.commit()
+    db.refresh(item)
+    return _book_to_response(item, db)
+
+
+@app.delete("/api/books/{item_id}", status_code=204)
+def delete_book(item_id: int, db: DbSession) -> None:
+    """删除书目。"""
+    item = db.get(Book, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="书目不存在")
+
+    db.delete(item)
+    db.commit()
 
 
 @app.get("/api/marginalia", response_model=list[MarginaliaResponse])
