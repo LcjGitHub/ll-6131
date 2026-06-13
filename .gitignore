@@ -85,6 +85,9 @@ lerna-debug.log*
 .classpath
 .settings/
 
+# TypeScript build info
+*.tsbuildinfo
+
 # OS
 .DS_Store
 .DS_Store?

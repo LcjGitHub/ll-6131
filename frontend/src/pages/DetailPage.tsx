@@ -1,14 +1,12 @@
 import {
-  Badge,
   Box,
   Button,
   Heading,
   HStack,
   Spinner,
   Text,
-  Wrap,
-  WrapItem,
 } from "@chakra-ui/react";
+import type { AxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { fetchMarginalia } from "../api/marginalia";
@@ -19,6 +17,7 @@ export default function DetailPage() {
   const navigate = useNavigate();
   const [item, setItem] = useState<Marginalia | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,11 +28,17 @@ export default function DetailPage() {
     const loadItem = async () => {
       setLoading(true);
       setError(null);
+      setNotFound(false);
       try {
         const data = await fetchMarginalia(Number(id));
         setItem(data);
-      } catch {
-        setError("加载摘录失败，请确认后端服务已启动（端口 3000）");
+      } catch (err) {
+        const axiosErr = err as AxiosError;
+        if (axiosErr.response?.status === 404) {
+          setNotFound(true);
+        } else {
+          setError("加载摘录失败，请确认后端服务已启动（端口 3000）");
+        }
       } finally {
         setLoading(false);
       }
@@ -52,6 +57,19 @@ export default function DetailPage() {
         <Spinner />
         <Text color="gray.500">加载中…</Text>
       </HStack>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <Box>
+        <Box bg="yellow.50" color="yellow.700" p={4} borderRadius="md" mb={4}>
+          摘录不存在
+        </Box>
+        <Button variant="outline" onClick={handleBack}>
+          返回列表
+        </Button>
+      </Box>
     );
   }
 
@@ -112,23 +130,6 @@ export default function DetailPage() {
           </Text>
           <Text>{item.page_number}</Text>
         </Box>
-
-        {item.tags.length > 0 && (
-          <Box mb={4}>
-            <Text fontSize="sm" color="gray.500" mb={2}>
-              标签
-            </Text>
-            <Wrap gap={1}>
-              {item.tags.map((tag) => (
-                <WrapItem key={tag.id}>
-                  <Badge colorPalette="teal" variant="subtle">
-                    {tag.name}
-                  </Badge>
-                </WrapItem>
-              ))}
-            </Wrap>
-          </Box>
-        )}
 
         <Box mb={4}>
           <Text fontSize="sm" color="gray.500" mb={1}>

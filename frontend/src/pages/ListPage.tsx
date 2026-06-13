@@ -128,8 +128,9 @@ export default function ListPage() {
                   <Table.Cell fontWeight="medium">
                     <Link
                       asChild
-                      color="gray.800"
-                      _hover={{ color: "teal.600", textDecoration: "underline" }}
+                      color="teal.600"
+                      textDecoration="underline"
+                      _hover={{ color: "teal.700" }}
                     >
                       <RouterLink to={`/detail/${item.id}`}>
                         {item.book_title}
