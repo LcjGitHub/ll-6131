@@ -12,6 +12,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
+from pydantic import BaseModel, Field
+
 from database import Base, SessionLocal, engine, get_db
 from models import Book, Marginalia, Tag, marginalia_tag
 from schemas import (
@@ -197,6 +199,8 @@ def _marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
         original_text=item.original_text,
         marginalia_content=item.marginalia_content,
         purchase_channel=item.purchase_channel,
+        is_favorite=item.is_favorite,
+        entry_date=item.entry_date,
         tags=[TagResponse(id=t.id, name=t.name) for t in item.tags],
     )
 
@@ -206,6 +210,7 @@ def list_marginalia(
     db: DbSession,
     book_title: str | None = Query(None, description="按书名模糊搜索"),
     content_keyword: str | None = Query(None, description="按眉批内容模糊搜索"),
+    is_favorite: bool | None = Query(None, description="仅看收藏"),
 ) -> list[MarginaliaResponse]:
     query = db.query(Marginalia)
     if book_title:
@@ -214,6 +219,8 @@ def list_marginalia(
     if content_keyword:
         like = f"%{content_keyword}%"
         query = query.filter(Marginalia.marginalia_content.ilike(like))
+    if is_favorite is not None:
+        query = query.filter(Marginalia.is_favorite == is_favorite)
     items = query.order_by(Marginalia.id.desc()).all()
     return [_marginalia_to_response(i) for i in items]
 
@@ -275,6 +282,8 @@ def create_marginalia(payload: MarginaliaCreate, db: DbSession) -> MarginaliaRes
         original_text=payload.original_text,
         marginalia_content=payload.marginalia_content,
         purchase_channel=payload.purchase_channel,
+        is_favorite=payload.is_favorite,
+        entry_date=payload.entry_date,
         tags=tags,
     )
     db.add(item)
@@ -303,6 +312,8 @@ def update_marginalia(
     item.original_text = payload.original_text
     item.marginalia_content = payload.marginalia_content
     item.purchase_channel = payload.purchase_channel
+    item.is_favorite = payload.is_favorite
+    item.entry_date = payload.entry_date
 
     tag_ids = payload.tag_ids if payload.tag_ids is not None else []
     tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all() if tag_ids else []
@@ -321,6 +332,26 @@ def delete_marginalia(item_id: int, db: DbSession) -> None:
 
     db.delete(item)
     db.commit()
+
+
+class ToggleFavoritePayload(BaseModel):
+    is_favorite: bool = Field(..., description="目标收藏状态")
+
+
+@app.patch("/api/marginalia/{item_id}/favorite", response_model=MarginaliaResponse)
+def toggle_favorite(
+    item_id: int,
+    payload: ToggleFavoritePayload,
+    db: DbSession,
+) -> MarginaliaResponse:
+    """行内切换收藏状态。"""
+    item = db.get(Marginalia, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="摘录不存在")
+    item.is_favorite = payload.is_favorite
+    db.commit()
+    db.refresh(item)
+    return _marginalia_to_response(item)
 
 
 @app.get("/api/tags", response_model=list[TagResponse])

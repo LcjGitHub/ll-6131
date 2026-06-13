@@ -8,6 +8,7 @@ import {
   Input,
   Select,
   Spinner,
+  Switch,
   Textarea,
 } from "@chakra-ui/react";
 import { useMemo } from "react";
@@ -25,12 +26,16 @@ import type { BookOption } from "../types/book";
 import type { MarginaliaFormData } from "../types/marginalia";
 import type { Tag } from "../types/tag";
 
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
 const defaultValues: MarginaliaFormData = {
   book_id: 0,
   page_number: "",
   original_text: "",
   marginalia_content: "",
   purchase_channel: "",
+  is_favorite: false,
+  entry_date: todayStr(),
   tag_ids: [],
 };
 
@@ -116,6 +121,8 @@ export default function FormPage() {
           original_text: item.original_text,
           marginalia_content: item.marginalia_content,
           purchase_channel: item.purchase_channel ?? "",
+          is_favorite: item.is_favorite,
+          entry_date: item.entry_date,
           tag_ids: item.tags.map((t) => t.id),
         });
       } catch {
@@ -284,12 +291,38 @@ export default function FormPage() {
           )}
         </Field.Root>
 
-        <Field.Root mb={6}>
+        <Field.Root mb={4}>
           <Field.Label>购入渠道</Field.Label>
           <Input
             {...register("purchase_channel")}
             placeholder="如：孔夫子旧书网（选填）"
           />
+        </Field.Root>
+
+        <Field.Root mb={4}>
+          <Field.Label>录入日期</Field.Label>
+          <Input
+            type="date"
+            {...register("entry_date", { required: "请选择录入日期" })}
+          />
+          {errors.entry_date && (
+            <Field.ErrorText>{errors.entry_date.message}</Field.ErrorText>
+          )}
+        </Field.Root>
+
+        <Field.Root mb={6}>
+          <HStack justify="space-between" align="center" width="100%">
+            <Field.Label mb={0}>是否收藏</Field.Label>
+            <Switch.Root
+              checked={watch("is_favorite")}
+              onCheckedChange={(e: { checked: boolean }) => setValue("is_favorite", e.checked)}
+            >
+              <Switch.HiddenInput />
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Root>
+          </HStack>
         </Field.Root>
 
         <HStack gap={3}>

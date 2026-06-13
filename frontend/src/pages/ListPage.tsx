@@ -4,9 +4,11 @@ import {
   Button,
   Heading,
   HStack,
+  IconButton,
   Input,
   Link,
   Spinner,
+  Switch,
   Table,
   Text,
   Wrap,
@@ -14,24 +16,56 @@ import {
 } from "@chakra-ui/react";
 import { useCallback, useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { deleteMarginalia, exportMarginalia, fetchMarginaliaList } from "../api/marginalia";
+import {
+  deleteMarginalia,
+  exportMarginalia,
+  fetchMarginaliaList,
+  toggleFavorite,
+} from "../api/marginalia";
 import type { Marginalia } from "../types/marginalia";
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill={filled ? "#eab308" : "none"}
+      stroke={filled ? "#eab308" : "currentColor"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
 
 /** 摘录列表页：Chakra Table + 书名搜索 */
 export default function ListPage() {
   const [items, setItems] = useState<Marginalia[]>([]);
   const [search, setSearch] = useState("");
   const [contentSearch, setContentSearch] = useState("");
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
   const loadItems = useCallback(
-    async (bookTitle?: string, contentKeyword?: string) => {
+    async (
+      bookTitle?: string,
+      contentKeyword?: string,
+      isFavorite?: boolean,
+    ) => {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchMarginaliaList(bookTitle, contentKeyword);
+        const data = await fetchMarginaliaList(
+          bookTitle,
+          contentKeyword,
+          isFavorite,
+        );
         setItems(data);
       } catch {
         setError("加载失败，请确认后端服务已启动（端口 3000）");
@@ -50,7 +84,39 @@ export default function ListPage() {
     void loadItems(
       search.trim() || undefined,
       contentSearch.trim() || undefined,
+      onlyFavorites ? true : undefined,
     );
+  };
+
+  const handleToggleFavoriteFilter = (checked: boolean) => {
+    setOnlyFavorites(checked);
+    void loadItems(
+      search.trim() || undefined,
+      contentSearch.trim() || undefined,
+      checked ? true : undefined,
+    );
+  };
+
+  const handleToggleFavorite = async (item: Marginalia) => {
+    if (togglingIds.has(item.id)) return;
+    const nextFavorite = !item.is_favorite;
+    setTogglingIds((prev) => new Set(prev).add(item.id));
+    try {
+      await toggleFavorite(item.id, nextFavorite);
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, is_favorite: nextFavorite } : i,
+        ),
+      );
+    } catch {
+      setError("切换收藏失败");
+    } finally {
+      setTogglingIds((prev) => {
+        const s = new Set(prev);
+        s.delete(item.id);
+        return s;
+      });
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -62,6 +128,7 @@ export default function ListPage() {
       void loadItems(
         search.trim() || undefined,
         contentSearch.trim() || undefined,
+        onlyFavorites ? true : undefined,
       );
     } catch {
       setError("删除失败");
@@ -99,6 +166,30 @@ export default function ListPage() {
         </Button>
       </HStack>
 
+      <Box
+        bg="white"
+        p={4}
+        borderRadius="md"
+        borderWidth="1px"
+        mb={4}
+      >
+        <HStack justify="flex-end" align="center">
+          <Text fontSize="sm" color="gray.600">
+            仅看收藏
+          </Text>
+          <Switch.Root
+            checked={onlyFavorites}
+            onCheckedChange={(e: { checked: boolean }) => handleToggleFavoriteFilter(e.checked)}
+            colorPalette="yellow"
+          >
+            <Switch.HiddenInput />
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Root>
+        </HStack>
+      </Box>
+
       <HStack mb={6} gap={3} wrap="wrap">
         <Input
           placeholder="按书名搜索…"
@@ -124,6 +215,7 @@ export default function ListPage() {
           onClick={() => {
             setSearch("");
             setContentSearch("");
+            setOnlyFavorites(false);
             void loadItems();
           }}
         >
@@ -155,18 +247,39 @@ export default function ListPage() {
           <Table.Root size="sm" striped>
             <Table.Header>
               <Table.Row>
+                <Table.ColumnHeader width="50px" textAlign="center">
+                  收藏
+                </Table.ColumnHeader>
                 <Table.ColumnHeader>书名</Table.ColumnHeader>
                 <Table.ColumnHeader>标签</Table.ColumnHeader>
                 <Table.ColumnHeader>页码</Table.ColumnHeader>
                 <Table.ColumnHeader>原文</Table.ColumnHeader>
                 <Table.ColumnHeader>眉批内容</Table.ColumnHeader>
                 <Table.ColumnHeader>购入渠道</Table.ColumnHeader>
+                <Table.ColumnHeader>录入日期</Table.ColumnHeader>
                 <Table.ColumnHeader textAlign="end">操作</Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
               {items.map((item) => (
                 <Table.Row key={item.id}>
+                  <Table.Cell textAlign="center">
+                    <IconButton
+                      variant="ghost"
+                      size="xs"
+                      aria-label={
+                        item.is_favorite ? "取消收藏" : "加入收藏"
+                      }
+                      loading={togglingIds.has(item.id)}
+                      onClick={() => void handleToggleFavorite(item)}
+                      color={item.is_favorite ? "yellow.500" : "gray.400"}
+                      _hover={{
+                        color: item.is_favorite ? "yellow.600" : "yellow.500",
+                      }}
+                    >
+                      <StarIcon filled={item.is_favorite} />
+                    </IconButton>
+                  </Table.Cell>
                   <Table.Cell fontWeight="medium">
                     <Link
                       asChild
@@ -184,7 +297,11 @@ export default function ListPage() {
                       <Wrap gap={1}>
                         {item.tags.map((tag) => (
                           <WrapItem key={tag.id}>
-                            <Badge colorPalette="teal" variant="subtle" whiteSpace="nowrap">
+                            <Badge
+                              colorPalette="teal"
+                              variant="subtle"
+                              whiteSpace="nowrap"
+                            >
                               {tag.name}
                             </Badge>
                           </WrapItem>
@@ -202,6 +319,7 @@ export default function ListPage() {
                     <Text lineClamp={2}>{item.marginalia_content}</Text>
                   </Table.Cell>
                   <Table.Cell>{item.purchase_channel ?? "—"}</Table.Cell>
+                  <Table.Cell>{item.entry_date}</Table.Cell>
                   <Table.Cell textAlign="end">
                     <HStack gap={2} justify="flex-end">
                       <Button asChild size="xs" variant="outline">

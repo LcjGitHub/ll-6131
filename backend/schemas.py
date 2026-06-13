@@ -1,6 +1,7 @@
 """Pydantic 请求/响应模型。"""
 
 from pydantic import BaseModel, ConfigDict, Field
+from datetime import date
 
 
 class TagCreate(BaseModel):
@@ -57,6 +58,8 @@ class MarginaliaBase(BaseModel):
     original_text: str = Field(..., min_length=1, description="原文")
     marginalia_content: str = Field(..., min_length=1, description="眉批内容")
     purchase_channel: str | None = Field(None, max_length=255, description="购入渠道")
+    is_favorite: bool = Field(False, description="是否收藏")
+    entry_date: date = Field(..., description="录入日期")
 
 
 class MarginaliaCreate(MarginaliaBase):

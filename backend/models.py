@@ -1,7 +1,8 @@
 """眉批摘录 ORM 模型。"""
 
-from sqlalchemy import Column, Integer, String, Table, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Table, Text, ForeignKey, UniqueConstraint, Boolean, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import date
 
 from database import Base
 
@@ -58,6 +59,8 @@ class Marginalia(Base):
     original_text: Mapped[str] = mapped_column(Text, nullable=False)
     marginalia_content: Mapped[str] = mapped_column(Text, nullable=False)
     purchase_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    entry_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
 
     book: Mapped[Book] = relationship(back_populates="marginalia")
     tags: Mapped[list["Tag"]] = relationship(

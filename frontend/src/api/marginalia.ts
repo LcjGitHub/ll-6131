@@ -4,10 +4,12 @@ import { apiClient } from "./client";
 export async function fetchMarginaliaList(
   bookTitle?: string,
   contentKeyword?: string,
+  isFavorite?: boolean,
 ): Promise<Marginalia[]> {
-  const params: Record<string, string> = {};
+  const params: Record<string, string | boolean> = {};
   if (bookTitle) params.book_title = bookTitle;
   if (contentKeyword) params.content_keyword = contentKeyword;
+  if (isFavorite !== undefined) params.is_favorite = isFavorite;
   const { data } = await apiClient.get<Marginalia[]>("/marginalia", {
     params: Object.keys(params).length > 0 ? params : undefined,
   });
@@ -38,6 +40,16 @@ export async function updateMarginalia(
     ...payload,
     purchase_channel: payload.purchase_channel || null,
     tag_ids: payload.tag_ids || [],
+  });
+  return data;
+}
+
+export async function toggleFavorite(
+  id: number,
+  isFavorite: boolean,
+): Promise<Marginalia> {
+  const { data } = await apiClient.patch<Marginalia>(`/marginalia/${id}/favorite`, {
+    is_favorite: isFavorite,
   });
   return data;
 }

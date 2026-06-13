@@ -10,6 +10,8 @@ export interface Marginalia {
   original_text: string;
   marginalia_content: string;
   purchase_channel: string | null;
+  is_favorite: boolean;
+  entry_date: string;
   tags: Tag[];
 }
 
@@ -19,5 +21,7 @@ export interface MarginaliaFormData {
   original_text: string;
   marginalia_content: string;
   purchase_channel: string;
+  is_favorite: boolean;
+  entry_date: string;
   tag_ids: number[];
 }

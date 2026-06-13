@@ -1,16 +1,37 @@
 import {
+  Badge,
   Box,
   Button,
   Heading,
   HStack,
   Spinner,
   Text,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react";
 import type { AxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { fetchMarginalia } from "../api/marginalia";
 import type { Marginalia } from "../types/marginalia";
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill={filled ? "#eab308" : "none"}
+      stroke={filled ? "#eab308" : "currentColor"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ verticalAlign: "-2px", marginRight: "4px" }}
+    >
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
 
 export default function DetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -106,14 +127,22 @@ export default function DetailPage() {
       </HStack>
 
       <Box bg="white" borderRadius="md" borderWidth="1px" p={6} mb={6}>
-        <Box mb={4}>
-          <Text fontSize="sm" color="gray.500" mb={1}>
-            编号
-          </Text>
-          <Text fontSize="lg" fontWeight="medium">
-            {item.id}
-          </Text>
-        </Box>
+        <HStack mb={4} justify="space-between">
+          <Box>
+            <Text fontSize="sm" color="gray.500" mb={1}>
+              编号
+            </Text>
+            <Text fontSize="lg" fontWeight="medium">
+              {item.id}
+            </Text>
+          </Box>
+          {item.is_favorite && (
+            <Badge colorPalette="yellow" variant="subtle" px={3} py={1}>
+              <StarIcon filled={true} />
+              已收藏
+            </Badge>
+          )}
+        </HStack>
 
         <Box mb={4}>
           <Text fontSize="sm" color="gray.500" mb={1}>
@@ -124,11 +153,35 @@ export default function DetailPage() {
           </Text>
         </Box>
 
+        {item.tags.length > 0 && (
+          <Box mb={4}>
+            <Text fontSize="sm" color="gray.500" mb={1}>
+              标签
+            </Text>
+            <Wrap gap={1}>
+              {item.tags.map((tag) => (
+                <WrapItem key={tag.id}>
+                  <Badge colorPalette="teal" variant="subtle">
+                    {tag.name}
+                  </Badge>
+                </WrapItem>
+              ))}
+            </Wrap>
+          </Box>
+        )}
+
         <Box mb={4}>
           <Text fontSize="sm" color="gray.500" mb={1}>
             页码
           </Text>
           <Text>{item.page_number}</Text>
+        </Box>
+
+        <Box mb={4}>
+          <Text fontSize="sm" color="gray.500" mb={1}>
+            录入日期
+          </Text>
+          <Text>{item.entry_date}</Text>
         </Box>
 
         <Box mb={4}>

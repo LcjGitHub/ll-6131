@@ -1,5 +1,7 @@
 """初始化示例数据。"""
 
+from datetime import date
+
 from sqlalchemy.orm import Session
 
 from models import Book, Marginalia, Tag
@@ -43,7 +45,7 @@ BOOK_SEED_DATA: list[dict[str, str | int | None]] = [
     },
 ]
 
-MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
+MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str] | bool | date]] = [
     {
         "book_title": "红楼梦",
         "page_number": "32",
@@ -51,6 +53,8 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
         "marginalia_content": "开篇即定调，非闲笔。己卯本与此异，当对照。",
         "purchase_channel": "孔夫子旧书网",
         "tag_names": ["文学", "版本对比"],
+        "is_favorite": True,
+        "entry_date": date(2025, 3, 15),
     },
     {
         "book_title": "红楼梦",
@@ -59,6 +63,8 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
         "marginalia_content": "脂批谓「干净」二字最妙，余以为然。",
         "purchase_channel": "孔夫子旧书网",
         "tag_names": ["文学"],
+        "is_favorite": False,
+        "entry_date": date(2025, 3, 18),
     },
     {
         "book_title": "聊斋志异",
@@ -67,6 +73,8 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
         "marginalia_content": "此条眉批疑为后人补，墨迹较新。",
         "purchase_channel": "线下古玩市场",
         "tag_names": ["考证"],
+        "is_favorite": True,
+        "entry_date": date(2025, 4, 2),
     },
     {
         "book_title": "陶庵梦忆",
@@ -75,6 +83,8 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
         "marginalia_content": "张岱笔意在此，眉批点破「月湖」为胜。",
         "purchase_channel": "友人赠阅",
         "tag_names": ["文学"],
+        "is_favorite": False,
+        "entry_date": date(2025, 4, 20),
     },
     {
         "book_title": "世说新语",
@@ -83,6 +93,8 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
         "marginalia_content": "谢安镇定，批者注「围棋」二字有深意。",
         "purchase_channel": "国家图书馆影印本",
         "tag_names": ["文学", "考证"],
+        "is_favorite": True,
+        "entry_date": date(2025, 5, 8),
     },
 ]
 
@@ -121,6 +133,8 @@ def seed_marginalia(db: Session) -> None:
                 original_text=item["original_text"],
                 marginalia_content=item["marginalia_content"],
                 purchase_channel=item.get("purchase_channel"),
+                is_favorite=item.get("is_favorite", False),
+                entry_date=item["entry_date"],
                 tags=tags,
             )
         )
