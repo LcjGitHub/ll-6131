@@ -1,15 +1,9 @@
 import type { Book, BookFormData, BookOption } from "../types/book";
 import { apiClient } from "./client";
 
-export async function fetchBookList(
-  keyword?: string,
-  marginaliaKeyword?: string,
-): Promise<Book[]> {
-  const params: Record<string, string> = {};
-  if (keyword) params.keyword = keyword;
-  if (marginaliaKeyword) params.marginalia_keyword = marginaliaKeyword;
+export async function fetchBookList(keyword?: string): Promise<Book[]> {
   const { data } = await apiClient.get<Book[]>("/books", {
-    params: Object.keys(params).length > 0 ? params : undefined,
+    params: keyword ? { keyword } : undefined,
   });
   return data;
 }

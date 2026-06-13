@@ -21,29 +21,36 @@ import type { Marginalia } from "../types/marginalia";
 export default function ListPage() {
   const [items, setItems] = useState<Marginalia[]>([]);
   const [search, setSearch] = useState("");
+  const [contentSearch, setContentSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const loadItems = useCallback(async (bookTitle?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchMarginaliaList(bookTitle);
-      setItems(data);
-    } catch {
-      setError("加载失败，请确认后端服务已启动（端口 3000）");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadItems = useCallback(
+    async (bookTitle?: string, contentKeyword?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchMarginaliaList(bookTitle, contentKeyword);
+        setItems(data);
+      } catch {
+        setError("加载失败，请确认后端服务已启动（端口 3000）");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
   const handleSearch = () => {
-    void loadItems(search.trim() || undefined);
+    void loadItems(
+      search.trim() || undefined,
+      contentSearch.trim() || undefined,
+    );
   };
 
   const handleDelete = async (id: number) => {
@@ -52,7 +59,10 @@ export default function ListPage() {
     }
     try {
       await deleteMarginalia(id);
-      void loadItems(search.trim() || undefined);
+      void loadItems(
+        search.trim() || undefined,
+        contentSearch.trim() || undefined,
+      );
     } catch {
       setError("删除失败");
     }
@@ -89,11 +99,19 @@ export default function ListPage() {
         </Button>
       </HStack>
 
-      <HStack mb={6} gap={3}>
+      <HStack mb={6} gap={3} wrap="wrap">
         <Input
           placeholder="按书名搜索…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          maxW="320px"
+          bg="white"
+        />
+        <Input
+          placeholder="按眉批内容搜索…"
+          value={contentSearch}
+          onChange={(e) => setContentSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           maxW="320px"
           bg="white"
@@ -105,6 +123,7 @@ export default function ListPage() {
           variant="ghost"
           onClick={() => {
             setSearch("");
+            setContentSearch("");
             void loadItems();
           }}
         >

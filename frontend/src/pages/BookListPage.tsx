@@ -17,35 +17,28 @@ import type { Book } from "../types/book";
 export default function BookListPage() {
   const [items, setItems] = useState<Book[]>([]);
   const [search, setSearch] = useState("");
-  const [marginaliaSearch, setMarginaliaSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadItems = useCallback(
-    async (keyword?: string, marginaliaKeyword?: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchBookList(keyword, marginaliaKeyword);
-        setItems(data);
-      } catch {
-        setError("加载失败，请确认后端服务已启动（端口 3000）");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const loadItems = useCallback(async (keyword?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchBookList(keyword);
+      setItems(data);
+    } catch {
+      setError("加载失败，请确认后端服务已启动（端口 3000）");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
   const handleSearch = () => {
-    void loadItems(
-      search.trim() || undefined,
-      marginaliaSearch.trim() || undefined,
-    );
+    void loadItems(search.trim() || undefined);
   };
 
   const handleDelete = async (id: number) => {
@@ -54,10 +47,7 @@ export default function BookListPage() {
     }
     try {
       await deleteBook(id);
-      void loadItems(
-        search.trim() || undefined,
-        marginaliaSearch.trim() || undefined,
-      );
+      void loadItems(search.trim() || undefined);
     } catch {
       setError("删除失败");
     }
@@ -72,19 +62,11 @@ export default function BookListPage() {
         </Button>
       </HStack>
 
-      <HStack mb={6} gap={3} wrap="wrap">
+      <HStack mb={6} gap={3}>
         <Input
           placeholder="按书名或作者搜索…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          maxW="320px"
-          bg="white"
-        />
-        <Input
-          placeholder="按眉批内容搜索…"
-          value={marginaliaSearch}
-          onChange={(e) => setMarginaliaSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           maxW="320px"
           bg="white"
@@ -96,7 +78,6 @@ export default function BookListPage() {
           variant="ghost"
           onClick={() => {
             setSearch("");
-            setMarginaliaSearch("");
             void loadItems();
           }}
         >

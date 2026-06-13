@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, distinct
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
@@ -77,21 +77,12 @@ def _book_to_response(book: Book, db: Session) -> BookResponse:
 def list_books(
     db: DbSession,
     keyword: str | None = Query(None, description="按书名或作者模糊搜索"),
-    marginalia_keyword: str | None = Query(None, description="按眉批内容模糊搜索"),
 ) -> list[BookResponse]:
-    """获取书目列表，支持按书名/作者和眉批内容搜索，返回关联摘录条数。"""
+    """获取书目列表，支持按书名/作者搜索，返回关联摘录条数。"""
     query = db.query(Book)
     if keyword:
         like = f"%{keyword}%"
         query = query.filter((Book.title.ilike(like)) | (Book.author.ilike(like)))
-    if marginalia_keyword:
-        like = f"%{marginalia_keyword}%"
-        book_ids = (
-            db.query(distinct(Marginalia.book_id))
-            .filter(Marginalia.marginalia_content.ilike(like))
-            .subquery()
-        )
-        query = query.filter(Book.id.in_(book_ids))
     books = query.order_by(Book.id.desc()).all()
     return [_book_to_response(b, db) for b in books]
 
@@ -214,10 +205,15 @@ def _marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
 def list_marginalia(
     db: DbSession,
     book_title: str | None = Query(None, description="按书名模糊搜索"),
+    content_keyword: str | None = Query(None, description="按眉批内容模糊搜索"),
 ) -> list[MarginaliaResponse]:
     query = db.query(Marginalia)
     if book_title:
-        query = query.filter(Marginalia.book_title.contains(book_title))
+        like = f"%{book_title}%"
+        query = query.filter(Marginalia.book_title.ilike(like))
+    if content_keyword:
+        like = f"%{content_keyword}%"
+        query = query.filter(Marginalia.marginalia_content.ilike(like))
     items = query.order_by(Marginalia.id.desc()).all()
     return [_marginalia_to_response(i) for i in items]
 

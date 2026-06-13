@@ -3,9 +3,13 @@ import { apiClient } from "./client";
 
 export async function fetchMarginaliaList(
   bookTitle?: string,
+  contentKeyword?: string,
 ): Promise<Marginalia[]> {
+  const params: Record<string, string> = {};
+  if (bookTitle) params.book_title = bookTitle;
+  if (contentKeyword) params.content_keyword = contentKeyword;
   const { data } = await apiClient.get<Marginalia[]>("/marginalia", {
-    params: bookTitle ? { book_title: bookTitle } : undefined,
+    params: Object.keys(params).length > 0 ? params : undefined,
   });
   return data;
 }
