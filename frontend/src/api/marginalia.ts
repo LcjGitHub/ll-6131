@@ -49,7 +49,7 @@ export async function exportMarginalia(): Promise<void> {
 
   const contentDisposition = response.headers["content-disposition"];
   const filenameMatch = contentDisposition?.match(/filename\*=UTF-8''(.+)/);
-  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "marginalia_export.csv";
+  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "摘录导出.csv";
 
   const url = URL.createObjectURL(new Blob([response.data], { type: "text/csv; charset=utf-8-sig" }));
   const link = document.createElement("a");

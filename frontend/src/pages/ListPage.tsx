@@ -81,7 +81,7 @@ export default function ListPage() {
             loading={exporting}
             loadingText="导出中…"
           >
-            导出 CSV
+            导出
           </Button>
         </HStack>
         <Button asChild colorPalette="teal">

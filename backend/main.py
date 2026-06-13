@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from urllib.parse import quote
 
 from database import Base, SessionLocal, engine, get_db
 from models import Book, Marginalia, Tag, marginalia_tag
@@ -218,6 +219,7 @@ def export_marginalia(db: DbSession) -> StreamingResponse:
     items = db.query(Marginalia).order_by(Marginalia.id.desc()).all()
 
     buffer = io.StringIO()
+    buffer.write("\ufeff")
     writer = csv.writer(buffer)
     writer.writerow(["书名", "页码", "原文", "眉批内容", "购入渠道"])
 
@@ -231,13 +233,14 @@ def export_marginalia(db: DbSession) -> StreamingResponse:
         ])
 
     buffer.seek(0)
-    filename = f"marginalia_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"摘录导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    encoded_filename = quote(filename)
 
     return StreamingResponse(
         iter([buffer.getvalue()]),
         media_type="text/csv; charset=utf-8-sig",
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
         },
     )
 
