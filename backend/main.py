@@ -1,9 +1,13 @@
 """旧书页眉批摘录库 API。"""
 
+import csv
+import io
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -206,6 +210,36 @@ def list_marginalia(
         query = query.filter(Marginalia.book_title.contains(book_title))
     items = query.order_by(Marginalia.id.desc()).all()
     return [_marginalia_to_response(i) for i in items]
+
+
+@app.get("/api/marginalia/export")
+def export_marginalia(db: DbSession) -> StreamingResponse:
+    """导出全部摘录记录为 CSV 文件。"""
+    items = db.query(Marginalia).order_by(Marginalia.id.desc()).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["书名", "页码", "原文", "眉批内容", "购入渠道"])
+
+    for item in items:
+        writer.writerow([
+            item.book_title,
+            item.page_number,
+            item.original_text,
+            item.marginalia_content,
+            item.purchase_channel or "",
+        ])
+
+    buffer.seek(0)
+    filename = f"marginalia_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+        },
+    )
 
 
 @app.get("/api/marginalia/{item_id}", response_model=MarginaliaResponse)

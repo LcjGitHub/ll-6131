@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react";
 import { useCallback, useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { deleteMarginalia, fetchMarginaliaList } from "../api/marginalia";
+import { deleteMarginalia, exportMarginalia, fetchMarginaliaList } from "../api/marginalia";
 import type { Marginalia } from "../types/marginalia";
 
 /** 摘录列表页：Chakra Table + 书名搜索 */
@@ -23,6 +23,7 @@ export default function ListPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const loadItems = useCallback(async (bookTitle?: string) => {
     setLoading(true);
@@ -57,10 +58,32 @@ export default function ListPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      await exportMarginalia();
+    } catch {
+      setError("导出失败，请确认后端服务已启动（端口 3000）");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Box>
       <HStack justify="space-between" mb={6}>
-        <Heading size="md">摘录列表</Heading>
+        <HStack gap={4}>
+          <Heading size="md">摘录列表</Heading>
+          <Button
+            variant="outline"
+            onClick={() => void handleExport()}
+            loading={exporting}
+            loadingText="导出中…"
+          >
+            导出 CSV
+          </Button>
+        </HStack>
         <Button asChild colorPalette="teal">
           <RouterLink to="/new">新增摘录</RouterLink>
         </Button>
