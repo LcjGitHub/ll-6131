@@ -101,3 +101,11 @@ class PaginatedMarginaliaResponse(BaseModel):
     total: int = Field(..., description="总条数")
     page: int = Field(..., description="当前页码")
     page_size: int = Field(..., description="每页条数")
+
+
+class BatchDeleteRequest(BaseModel):
+    ids: list[int] = Field(..., description="要删除的摘录 ID 列表")
+
+
+class BatchDeleteResponse(BaseModel):
+    deleted_count: int = Field(..., description="成功删除的条数")

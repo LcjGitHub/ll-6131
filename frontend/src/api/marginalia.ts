@@ -66,6 +66,13 @@ export async function deleteMarginalia(id: number): Promise<void> {
   await apiClient.delete(`/marginalia/${id}`);
 }
 
+export async function batchDeleteMarginalia(ids: number[]): Promise<{ deleted_count: number }> {
+  const { data } = await apiClient.post<{ deleted_count: number }>("/marginalia/batch-delete", {
+    ids,
+  });
+  return data;
+}
+
 export async function exportMarginalia(): Promise<void> {
   const response = await apiClient.get("/marginalia/export", {
     responseType: "blob",

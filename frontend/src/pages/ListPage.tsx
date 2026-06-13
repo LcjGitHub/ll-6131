@@ -2,6 +2,7 @@ import {
   Badge,
   Box,
   Button,
+  Checkbox,
   createListCollection,
   Heading,
   HStack,
@@ -19,6 +20,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
+  batchDeleteMarginalia,
   deleteMarginalia,
   exportMarginalia,
   fetchMarginaliaList,
@@ -59,6 +61,8 @@ export default function ListPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [batchDeleting, setBatchDeleting] = useState(false);
 
   const [searchInput, setSearchInput] = useState("");
   const [contentSearchInput, setContentSearchInput] = useState("");
@@ -104,6 +108,7 @@ export default function ListPage() {
   }, [loadItems]);
 
   const handleSearch = () => {
+    setSelectedIds(new Set());
     setQuery((prev) => ({
       ...prev,
       bookTitle: searchInput.trim() || undefined,
@@ -115,6 +120,7 @@ export default function ListPage() {
 
   const handleToggleFavoriteFilter = (checked: boolean) => {
     setOnlyFavoritesInput(checked);
+    setSelectedIds(new Set());
     setQuery((prev) => ({
       ...prev,
       isFavorite: checked ? true : undefined,
@@ -163,12 +169,60 @@ export default function ListPage() {
     }
     try {
       await deleteMarginalia(id);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       const newTotal = total - 1;
       const maxPage = Math.max(1, Math.ceil(newTotal / query.pageSize));
       const targetPage = query.page > maxPage ? maxPage : query.page;
       setQuery((prev) => ({ ...prev, page: targetPage }));
     } catch {
       setError("删除失败");
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`确定删除选中的 ${selectedIds.size} 条摘录吗？`)) {
+      return;
+    }
+    setBatchDeleting(true);
+    setError(null);
+    try {
+      await batchDeleteMarginalia(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      const deletedCount = selectedIds.size;
+      const newTotal = total - deletedCount;
+      const maxPage = Math.max(1, Math.ceil(newTotal / query.pageSize));
+      const targetPage = query.page > maxPage ? maxPage : query.page;
+      setQuery((prev) => ({ ...prev, page: targetPage }));
+    } catch {
+      setError("批量删除失败");
+    } finally {
+      setBatchDeleting(false);
+    }
+  };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    const allSelected = items.every((item) => selectedIds.has(item.id));
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map((item) => item.id)));
     }
   };
 
@@ -188,10 +242,12 @@ export default function ListPage() {
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
+    setSelectedIds(new Set());
     setQuery((prev) => ({ ...prev, page: newPage }));
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
+    setSelectedIds(new Set());
     setQuery((prev) => ({ ...prev, pageSize: newPageSize, page: 1 }));
   };
 
@@ -224,6 +280,7 @@ export default function ListPage() {
     setSearchInput("");
     setContentSearchInput("");
     setOnlyFavoritesInput(false);
+    setSelectedIds(new Set());
     setQuery({
       bookTitle: undefined,
       contentKeyword: undefined,
@@ -288,6 +345,20 @@ export default function ListPage() {
         </Box>
       </Box>
 
+      {!loading && items.length > 0 && (
+        <HStack mb={4}>
+          <Button
+            colorPalette="red"
+            onClick={() => void handleBatchDelete()}
+            loading={batchDeleting}
+            loadingText="删除中…"
+            disabled={selectedIds.size === 0}
+          >
+            批量删除 {selectedIds.size > 0 && `(${selectedIds.size})`}
+          </Button>
+        </HStack>
+      )}
+
       <HStack mb={6} gap={3} wrap="wrap">
         <Input
           placeholder="按书名搜索…"
@@ -338,6 +409,16 @@ export default function ListPage() {
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader width="50px" textAlign="center">
+                  <Checkbox.Root
+                    checked={items.length > 0 && items.every((item) => selectedIds.has(item.id))}
+                    onCheckedChange={() => handleToggleSelectAll()}
+                    disabled={items.length === 0}
+                  >
+                    <Checkbox.HiddenInput />
+                    <Checkbox.Control />
+                  </Checkbox.Root>
+                </Table.ColumnHeader>
+                <Table.ColumnHeader width="50px" textAlign="center">
                   收藏
                 </Table.ColumnHeader>
                 <Table.ColumnHeader>书名</Table.ColumnHeader>
@@ -353,6 +434,15 @@ export default function ListPage() {
             <Table.Body>
               {items.map((item) => (
                 <Table.Row key={item.id}>
+                  <Table.Cell textAlign="center">
+                    <Checkbox.Root
+                      checked={selectedIds.has(item.id)}
+                      onCheckedChange={() => handleToggleSelect(item.id)}
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control />
+                    </Checkbox.Root>
+                  </Table.Cell>
                   <Table.Cell textAlign="center">
                     <IconButton
                       variant="ghost"

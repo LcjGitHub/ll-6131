@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field
 from database import Base, SessionLocal, engine, get_db
 from models import Book, Marginalia, Tag, marginalia_tag
 from schemas import (
+    BatchDeleteRequest,
+    BatchDeleteResponse,
     BookCreate,
     BookOption,
     BookResponse,
@@ -388,6 +390,23 @@ def delete_marginalia(item_id: int, db: DbSession) -> None:
 
     db.delete(item)
     db.commit()
+
+
+@app.post("/api/marginalia/batch-delete", response_model=BatchDeleteResponse)
+def batch_delete_marginalia(payload: BatchDeleteRequest, db: DbSession) -> BatchDeleteResponse:
+    """按编号列表批量删除摘录。"""
+    ids = payload.ids
+    if not ids:
+        return BatchDeleteResponse(deleted_count=0)
+
+    items = db.query(Marginalia).filter(Marginalia.id.in_(ids)).all()
+    deleted_count = len(items)
+
+    for item in items:
+        db.delete(item)
+
+    db.commit()
+    return BatchDeleteResponse(deleted_count=deleted_count)
 
 
 class ToggleFavoritePayload(BaseModel):
