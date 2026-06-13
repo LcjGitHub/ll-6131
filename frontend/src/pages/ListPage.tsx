@@ -8,6 +8,8 @@ import {
   Spinner,
   Table,
   Text,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react";
 import { useCallback, useEffect, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
@@ -123,18 +125,20 @@ export default function ListPage() {
               {items.map((item) => (
                 <Table.Row key={item.id}>
                   <Table.Cell fontWeight="medium">{item.book_title}</Table.Cell>
-                  <Table.Cell>
-                    <HStack gap={1} wrap="wrap">
-                      {item.tags.length > 0 ? (
-                        item.tags.map((tag) => (
-                          <Badge key={tag.id} colorPalette="teal" variant="subtle">
-                            {tag.name}
-                          </Badge>
-                        ))
-                      ) : (
-                        <Text color="gray.400">—</Text>
-                      )}
-                    </HStack>
+                  <Table.Cell minW="120px">
+                    {item.tags.length > 0 ? (
+                      <Wrap gap={1}>
+                        {item.tags.map((tag) => (
+                          <WrapItem key={tag.id}>
+                            <Badge colorPalette="teal" variant="subtle" whiteSpace="nowrap">
+                              {tag.name}
+                            </Badge>
+                          </WrapItem>
+                        ))}
+                      </Wrap>
+                    ) : (
+                      <Text color="gray.400">—</Text>
+                    )}
                   </Table.Cell>
                   <Table.Cell>{item.page_number}</Table.Cell>
                   <Table.Cell maxW="200px">

@@ -186,6 +186,7 @@ export default function FormPage() {
             onValueChange={(e) =>
               setValue("book_id", Number(e.value[0]) || 0)
             }
+            positioning={{ placement: "bottom-start", sameWidth: true }}
           >
             <Select.HiddenSelect />
             <Select.Control>
@@ -211,8 +212,8 @@ export default function FormPage() {
           )}
         </Field.Root>
 
-        <Field.Root mb={4}>
-          <Field.Label>标签</Field.Label>
+        <Box position="relative" zIndex={10} mb={4}>
+          <Field.Label mb={1}>标签</Field.Label>
           <Select.Root
             collection={tagCollection}
             multiple
@@ -223,6 +224,7 @@ export default function FormPage() {
                 e.value.map(Number),
               )
             }
+            positioning={{ placement: "bottom-start", sameWidth: true }}
           >
             <Select.HiddenSelect />
             <Select.Control>
@@ -243,7 +245,7 @@ export default function FormPage() {
               </Select.Content>
             </Select.Positioner>
           </Select.Root>
-        </Field.Root>
+        </Box>
 
         <Field.Root invalid={Boolean(errors.page_number)} mb={4}>
           <Field.Label>页码</Field.Label>

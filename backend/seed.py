@@ -43,13 +43,14 @@ BOOK_SEED_DATA: list[dict[str, str | int | None]] = [
     },
 ]
 
-MARGINALIA_SEED_DATA: list[dict[str, str | None]] = [
+MARGINALIA_SEED_DATA: list[dict[str, str | None | list[str]]] = [
     {
         "book_title": "红楼梦",
         "page_number": "32",
         "original_text": "满纸荒唐言，一把辛酸泪。都云作者痴，谁解其中味？",
         "marginalia_content": "开篇即定调，非闲笔。己卯本与此异，当对照。",
         "purchase_channel": "孔夫子旧书网",
+        "tag_names": ["文学", "版本对比"],
     },
     {
         "book_title": "红楼梦",
@@ -57,6 +58,7 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None]] = [
         "original_text": "好一似食尽鸟投林，落了片白茫茫大地真干净。",
         "marginalia_content": "脂批谓「干净」二字最妙，余以为然。",
         "purchase_channel": "孔夫子旧书网",
+        "tag_names": ["文学"],
     },
     {
         "book_title": "聊斋志异",
@@ -64,6 +66,7 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None]] = [
         "original_text": "书痴故效书痴，柳泉以意为之耳。",
         "marginalia_content": "此条眉批疑为后人补，墨迹较新。",
         "purchase_channel": "线下古玩市场",
+        "tag_names": ["考证"],
     },
     {
         "book_title": "陶庵梦忆",
@@ -71,6 +74,7 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None]] = [
         "original_text": "西湖之胜，晴湖不如雨湖，雨湖不如月湖。",
         "marginalia_content": "张岱笔意在此，眉批点破「月湖」为胜。",
         "purchase_channel": "友人赠阅",
+        "tag_names": ["文学"],
     },
     {
         "book_title": "世说新语",
@@ -78,6 +82,7 @@ MARGINALIA_SEED_DATA: list[dict[str, str | None]] = [
         "original_text": "谢公与人围棋，俄而谢玄淮上信至。看书竟，默然无言。",
         "marginalia_content": "谢安镇定，批者注「围棋」二字有深意。",
         "purchase_channel": "国家图书馆影印本",
+        "tag_names": ["文学", "考证"],
     },
 ]
 
@@ -94,17 +99,20 @@ def seed_books(db: Session) -> None:
 
 
 def seed_marginalia(db: Session) -> None:
-    """若表为空则写入 5 条示例摘录，通过书名匹配书目外键。"""
+    """若表为空则写入 5 条示例摘录，通过书名匹配书目外键，绑定标签。"""
     if db.query(Marginalia).count() > 0:
         return
 
     book_map: dict[str, int] = {b.title: b.id for b in db.query(Book).all()}
+    tag_map: dict[str, Tag] = {t.name: t for t in db.query(Tag).all()}
 
     for item in MARGINALIA_SEED_DATA:
         book_title = item["book_title"]
         book_id = book_map.get(book_title)
         if book_id is None:
             continue
+        tag_names = item.get("tag_names", []) or []
+        tags = [tag_map[n] for n in tag_names if n in tag_map]
         db.add(
             Marginalia(
                 book_id=book_id,
@@ -113,6 +121,7 @@ def seed_marginalia(db: Session) -> None:
                 original_text=item["original_text"],
                 marginalia_content=item["marginalia_content"],
                 purchase_channel=item.get("purchase_channel"),
+                tags=tags,
             )
         )
 
