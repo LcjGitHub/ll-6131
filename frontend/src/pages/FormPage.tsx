@@ -1,37 +1,43 @@
 import {
   Box,
   Button,
+  createListCollection,
   Field,
   Heading,
   HStack,
   Input,
+  Select,
   Spinner,
   Textarea,
 } from "@chakra-ui/react";
+import { useMemo } from "react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { fetchBookOptions } from "../api/book";
 import {
   createMarginalia,
   fetchMarginalia,
   updateMarginalia,
 } from "../api/marginalia";
+import type { BookOption } from "../types/book";
 import type { MarginaliaFormData } from "../types/marginalia";
 
 const defaultValues: MarginaliaFormData = {
-  book_title: "",
+  book_id: 0,
   page_number: "",
   original_text: "",
   marginalia_content: "",
   purchase_channel: "",
 };
 
-/** 新增/编辑摘录表单页 */
 export default function FormPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(isEdit);
+  const [bookOptions, setBookOptions] = useState<BookOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +45,40 @@ export default function FormPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<MarginaliaFormData>({ defaultValues });
+
+  const bookId = watch("book_id");
+
+  const bookCollection = useMemo(
+    () =>
+      createListCollection({
+        items: bookOptions.map((opt) => ({
+          value: String(opt.id),
+          label: `${opt.title} — ${opt.author}`,
+        })),
+      }),
+    [bookOptions],
+  );
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const data = await fetchBookOptions();
+        setBookOptions(data);
+        if (data.length > 0 && !isEdit) {
+          setValue("book_id", data[0].id);
+        }
+      } catch {
+        setError("加载书目列表失败");
+      } finally {
+        setOptionsLoading(false);
+      }
+    };
+    void loadOptions();
+  }, [isEdit, setValue]);
 
   useEffect(() => {
     if (!id) {
@@ -53,7 +91,7 @@ export default function FormPage() {
       try {
         const item = await fetchMarginalia(Number(id));
         reset({
-          book_title: item.book_title,
+          book_id: item.book_id,
           page_number: item.page_number,
           original_text: item.original_text,
           marginalia_content: item.marginalia_content,
@@ -70,6 +108,10 @@ export default function FormPage() {
   }, [id, reset]);
 
   const onSubmit = async (data: MarginaliaFormData) => {
+    if (data.book_id <= 0) {
+      setError("请选择所属书目");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -86,7 +128,7 @@ export default function FormPage() {
     }
   };
 
-  if (loading) {
+  if (loading || optionsLoading) {
     return (
       <HStack py={10} justify="center">
         <Spinner />
@@ -115,14 +157,36 @@ export default function FormPage() {
         borderRadius="md"
         borderWidth="1px"
       >
-        <Field.Root invalid={Boolean(errors.book_title)} mb={4}>
-          <Field.Label>书名</Field.Label>
-          <Input
-            {...register("book_title", { required: "请输入书名" })}
-            placeholder="如：红楼梦"
-          />
-          {errors.book_title && (
-            <Field.ErrorText>{errors.book_title.message}</Field.ErrorText>
+        <Field.Root invalid={Boolean(errors.book_id)} mb={4}>
+          <Field.Label>所属书目</Field.Label>
+          <Select.Root
+            collection={bookCollection}
+            value={bookId ? [String(bookId)] : []}
+            onValueChange={(e) =>
+              setValue("book_id", Number(e.value[0]) || 0)
+            }
+          >
+            <Select.HiddenSelect />
+            <Select.Control>
+              <Select.Trigger>
+                <Select.ValueText placeholder="请选择书目" />
+              </Select.Trigger>
+              <Select.IndicatorGroup>
+                <Select.Indicator />
+              </Select.IndicatorGroup>
+            </Select.Control>
+            <Select.Positioner>
+              <Select.Content>
+                {bookCollection.items.map((item) => (
+                  <Select.Item key={item.value} item={item}>
+                    {item.label}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Positioner>
+          </Select.Root>
+          {errors.book_id && (
+            <Field.ErrorText>{errors.book_id.message}</Field.ErrorText>
           )}
         </Field.Root>
 
@@ -172,11 +236,7 @@ export default function FormPage() {
         </Field.Root>
 
         <HStack gap={3}>
-          <Button
-            type="submit"
-            colorPalette="teal"
-            loading={submitting}
-          >
+          <Button type="submit" colorPalette="teal" loading={submitting}>
             {isEdit ? "保存" : "创建"}
           </Button>
           <Button asChild variant="outline">

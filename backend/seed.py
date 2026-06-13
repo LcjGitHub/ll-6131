@@ -88,11 +88,26 @@ def seed_books(db: Session) -> None:
 
 
 def seed_marginalia(db: Session) -> None:
-    """若表为空则写入 5 条示例摘录。"""
+    """若表为空则写入 5 条示例摘录，通过书名匹配书目外键。"""
     if db.query(Marginalia).count() > 0:
         return
 
+    book_map: dict[str, int] = {b.title: b.id for b in db.query(Book).all()}
+
     for item in MARGINALIA_SEED_DATA:
-        db.add(Marginalia(**item))
+        book_title = item["book_title"]
+        book_id = book_map.get(book_title)
+        if book_id is None:
+            continue
+        db.add(
+            Marginalia(
+                book_id=book_id,
+                book_title=book_title,
+                page_number=item["page_number"],
+                original_text=item["original_text"],
+                marginalia_content=item["marginalia_content"],
+                purchase_channel=item.get("purchase_channel"),
+            )
+        )
 
     db.commit()

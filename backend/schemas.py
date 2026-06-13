@@ -29,10 +29,19 @@ class BookResponse(BookBase):
     marginalia_count: int = Field(0, description="关联摘录条数")
 
 
+class BookOption(BaseModel):
+    """书目下拉选项。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    author: str
+
+
 class MarginaliaBase(BaseModel):
     """眉批摘录公共字段。"""
 
-    book_title: str = Field(..., min_length=1, max_length=255, description="书名")
     page_number: str = Field(..., min_length=1, max_length=50, description="页码")
     original_text: str = Field(..., min_length=1, description="原文")
     marginalia_content: str = Field(..., min_length=1, description="眉批内容")
@@ -42,9 +51,13 @@ class MarginaliaBase(BaseModel):
 class MarginaliaCreate(MarginaliaBase):
     """创建摘录。"""
 
+    book_id: int = Field(..., gt=0, description="所属书目 ID")
+
 
 class MarginaliaUpdate(MarginaliaBase):
     """更新摘录。"""
+
+    book_id: int = Field(..., gt=0, description="所属书目 ID")
 
 
 class MarginaliaResponse(MarginaliaBase):
@@ -53,3 +66,5 @@ class MarginaliaResponse(MarginaliaBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    book_id: int
+    book_title: str

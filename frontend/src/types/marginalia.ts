@@ -2,6 +2,7 @@
 
 export interface Marginalia {
   id: number;
+  book_id: number;
   book_title: string;
   page_number: string;
   original_text: string;
@@ -10,7 +11,7 @@ export interface Marginalia {
 }
 
 export interface MarginaliaFormData {
-  book_title: string;
+  book_id: number;
   page_number: string;
   original_text: string;
   marginalia_content: string;

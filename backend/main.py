@@ -11,6 +11,7 @@ from database import Base, SessionLocal, engine, get_db
 from models import Book, Marginalia
 from schemas import (
     BookCreate,
+    BookOption,
     BookResponse,
     BookUpdate,
     MarginaliaCreate,
@@ -45,10 +46,10 @@ def on_startup() -> None:
 
 
 def _book_to_response(book: Book, db: Session) -> BookResponse:
-    """将 Book ORM 对象转为响应模型，附加摘录条数。"""
+    """将 Book ORM 对象转为响应模型，按外键统计摘录条数。"""
     count = (
         db.query(func.count(Marginalia.id))
-        .filter(Marginalia.book_title == book.title)
+        .filter(Marginalia.book_id == book.id)
         .scalar()
         or 0
     )
@@ -76,6 +77,12 @@ def list_books(
     return [_book_to_response(b, db) for b in books]
 
 
+@app.get("/api/books/options", response_model=list[BookOption])
+def list_book_options(db: DbSession) -> list[Book]:
+    """获取所有书目下拉选项（id + 书名 + 作者）。"""
+    return db.query(Book).order_by(Book.title.asc()).all()
+
+
 @app.get("/api/books/{item_id}", response_model=BookResponse)
 def get_book(item_id: int, db: DbSession) -> BookResponse:
     """获取单条书目。"""
@@ -101,13 +108,20 @@ def update_book(
     payload: BookUpdate,
     db: DbSession,
 ) -> BookResponse:
-    """更新书目。"""
+    """更新书目；若书名变更，则同步更新所有关联摘录的书名字段。"""
     item = db.get(Book, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="书目不存在")
 
+    old_title = item.title
+
     for key, value in payload.model_dump().items():
         setattr(item, key, value)
+
+    if payload.title != old_title:
+        db.query(Marginalia).filter(Marginalia.book_id == item.id).update(
+            {Marginalia.book_title: payload.title}, synchronize_session=False
+        )
 
     db.commit()
     db.refresh(item)
@@ -116,44 +130,81 @@ def update_book(
 
 @app.delete("/api/books/{item_id}", status_code=204)
 def delete_book(item_id: int, db: DbSession) -> None:
-    """删除书目。"""
+    """删除书目；若仍有关联摘录则拒绝删除。"""
     item = db.get(Book, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="书目不存在")
 
+    marginalia_count = (
+        db.query(func.count(Marginalia.id))
+        .filter(Marginalia.book_id == item_id)
+        .scalar()
+        or 0
+    )
+    if marginalia_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"该书目下仍有 {marginalia_count} 条摘录，无法删除",
+        )
+
     db.delete(item)
     db.commit()
+
+
+def _marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
+    """将 Marginalia ORM 对象转为响应模型。"""
+    return MarginaliaResponse(
+        id=item.id,
+        book_id=item.book_id,
+        book_title=item.book_title,
+        page_number=item.page_number,
+        original_text=item.original_text,
+        marginalia_content=item.marginalia_content,
+        purchase_channel=item.purchase_channel,
+    )
 
 
 @app.get("/api/marginalia", response_model=list[MarginaliaResponse])
 def list_marginalia(
     db: DbSession,
     book_title: str | None = Query(None, description="按书名模糊搜索"),
-) -> list[Marginalia]:
+) -> list[MarginaliaResponse]:
     """获取摘录列表，支持书名搜索。"""
     query = db.query(Marginalia)
     if book_title:
         query = query.filter(Marginalia.book_title.contains(book_title))
-    return query.order_by(Marginalia.id.desc()).all()
+    items = query.order_by(Marginalia.id.desc()).all()
+    return [_marginalia_to_response(i) for i in items]
 
 
 @app.get("/api/marginalia/{item_id}", response_model=MarginaliaResponse)
-def get_marginalia(item_id: int, db: DbSession) -> Marginalia:
+def get_marginalia(item_id: int, db: DbSession) -> MarginaliaResponse:
     """获取单条摘录。"""
     item = db.get(Marginalia, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="摘录不存在")
-    return item
+    return _marginalia_to_response(item)
 
 
 @app.post("/api/marginalia", response_model=MarginaliaResponse, status_code=201)
-def create_marginalia(payload: MarginaliaCreate, db: DbSession) -> Marginalia:
-    """新增摘录。"""
-    item = Marginalia(**payload.model_dump())
+def create_marginalia(payload: MarginaliaCreate, db: DbSession) -> MarginaliaResponse:
+    """新增摘录，需指定所属书目 ID。"""
+    book = db.get(Book, payload.book_id)
+    if book is None:
+        raise HTTPException(status_code=400, detail="指定的书目不存在")
+
+    item = Marginalia(
+        book_id=payload.book_id,
+        book_title=book.title,
+        page_number=payload.page_number,
+        original_text=payload.original_text,
+        marginalia_content=payload.marginalia_content,
+        purchase_channel=payload.purchase_channel,
+    )
     db.add(item)
     db.commit()
     db.refresh(item)
-    return item
+    return _marginalia_to_response(item)
 
 
 @app.put("/api/marginalia/{item_id}", response_model=MarginaliaResponse)
@@ -161,18 +212,26 @@ def update_marginalia(
     item_id: int,
     payload: MarginaliaUpdate,
     db: DbSession,
-) -> Marginalia:
-    """更新摘录。"""
+) -> MarginaliaResponse:
+    """更新摘录，支持更换所属书目。"""
     item = db.get(Marginalia, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="摘录不存在")
 
-    for key, value in payload.model_dump().items():
-        setattr(item, key, value)
+    book = db.get(Book, payload.book_id)
+    if book is None:
+        raise HTTPException(status_code=400, detail="指定的书目不存在")
+
+    item.book_id = payload.book_id
+    item.book_title = book.title
+    item.page_number = payload.page_number
+    item.original_text = payload.original_text
+    item.marginalia_content = payload.marginalia_content
+    item.purchase_channel = payload.purchase_channel
 
     db.commit()
     db.refresh(item)
-    return item
+    return _marginalia_to_response(item)
 
 
 @app.delete("/api/marginalia/{item_id}", status_code=204)

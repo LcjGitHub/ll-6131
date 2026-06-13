@@ -9,6 +9,12 @@ export interface Book {
   marginalia_count: number;
 }
 
+export interface BookOption {
+  id: number;
+  title: string;
+  author: string;
+}
+
 export interface BookFormData {
   title: string;
   author: string;

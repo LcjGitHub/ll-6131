@@ -1,10 +1,15 @@
-import type { Book, BookFormData } from "../types/book";
+import type { Book, BookFormData, BookOption } from "../types/book";
 import { apiClient } from "./client";
 
 export async function fetchBookList(keyword?: string): Promise<Book[]> {
   const { data } = await apiClient.get<Book[]>("/books", {
     params: keyword ? { keyword } : undefined,
   });
+  return data;
+}
+
+export async function fetchBookOptions(): Promise<BookOption[]> {
+  const { data } = await apiClient.get<BookOption[]>("/books/options");
   return data;
 }
 
