@@ -160,7 +160,7 @@ def delete_book(item_id: int, db: DbSession) -> None:
 def stats_summary(db: DbSession) -> StatsSummaryResponse:
     total_marginalia = db.query(func.count(Marginalia.id)).scalar() or 0
     distinct_book_count = (
-        db.query(func.count(func.distinct(Marginalia.book_title))).scalar() or 0
+        db.query(func.count(func.distinct(Marginalia.book_id))).scalar() or 0
     )
     channel_rows = (
         db.query(

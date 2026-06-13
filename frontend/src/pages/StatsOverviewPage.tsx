@@ -52,10 +52,9 @@ export default function StatsOverviewPage() {
 
   if (!stats) return null;
 
-  const maxChannelCount = Math.max(
-    ...stats.channel_distribution.map((c) => c.count),
-    1,
-  );
+  const topChannel = stats.channel_distribution.length > 0
+    ? stats.channel_distribution[0]
+    : null;
 
   return (
     <Box>
@@ -82,11 +81,22 @@ export default function StatsOverviewPage() {
         </Box>
         <Box bg="white" p={6} borderRadius="md" borderWidth="1px">
           <Text color="gray.500" fontSize="sm" mb={2}>
-            购入渠道数
+            最热购入渠道
           </Text>
-          <Text fontSize="3xl" fontWeight="bold" color="teal.600">
-            {stats.channel_distribution.length}
-          </Text>
+          {topChannel ? (
+            <HStack gap={2} align="baseline">
+              <Text fontSize="3xl" fontWeight="bold" color="teal.600">
+                {topChannel.channel}
+              </Text>
+              <Text fontSize="lg" color="gray.500">
+                {topChannel.percentage}%
+              </Text>
+            </HStack>
+          ) : (
+            <Text fontSize="3xl" fontWeight="bold" color="gray.400">
+              —
+            </Text>
+          )}
         </Box>
       </Grid>
 
@@ -109,7 +119,7 @@ export default function StatsOverviewPage() {
                   </Text>
                 </HStack>
                 <Progress.Root
-                  value={(ch.count / maxChannelCount) * 100}
+                  value={ch.percentage}
                   size="sm"
                   colorPalette="teal"
                 >
