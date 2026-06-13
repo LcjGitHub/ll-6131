@@ -16,7 +16,7 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   deleteMarginalia,
@@ -43,74 +43,83 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
+interface ListQuery {
+  bookTitle: string | undefined;
+  contentKeyword: string | undefined;
+  isFavorite: boolean | undefined;
+  page: number;
+  pageSize: number;
+}
+
 /** 摘录列表页：Chakra Table + 书名搜索 + 分页 */
 export default function ListPage() {
   const [items, setItems] = useState<Marginalia[]>([]);
-  const [search, setSearch] = useState("");
-  const [contentSearch, setContentSearch] = useState("");
-  const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [total, setTotal] = useState(0);
 
-  const loadItems = useCallback(
-    async (
-      bookTitle?: string,
-      contentKeyword?: string,
-      isFavorite?: boolean,
-      currentPage?: number,
-      currentPageSize?: number,
-    ) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchMarginaliaList(
-          bookTitle,
-          contentKeyword,
-          isFavorite,
-          currentPage ?? page,
-          currentPageSize ?? pageSize,
-        );
-        setItems(data.items);
-        setTotal(data.total);
-        setPage(data.page);
-        setPageSize(data.page_size);
-      } catch {
-        setError("加载失败，请确认后端服务已启动（端口 3000）");
-      } finally {
+  const [searchInput, setSearchInput] = useState("");
+  const [contentSearchInput, setContentSearchInput] = useState("");
+  const [onlyFavoritesInput, setOnlyFavoritesInput] = useState(false);
+
+  const [query, setQuery] = useState<ListQuery>({
+    bookTitle: undefined,
+    contentKeyword: undefined,
+    isFavorite: undefined,
+    page: 1,
+    pageSize: 10,
+  });
+
+  const reqSeqRef = useRef(0);
+
+  const loadItems = useCallback(async () => {
+    const mySeq = ++reqSeqRef.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchMarginaliaList(
+        query.bookTitle,
+        query.contentKeyword,
+        query.isFavorite,
+        query.page,
+        query.pageSize,
+      );
+      if (reqSeqRef.current !== mySeq) return;
+      setItems(data.items);
+      setTotal(data.total);
+    } catch {
+      if (reqSeqRef.current !== mySeq) return;
+      setError("加载失败，请确认后端服务已启动（端口 3000）");
+    } finally {
+      if (reqSeqRef.current === mySeq) {
         setLoading(false);
       }
-    },
-    [page, pageSize],
-  );
+    }
+  }, [query]);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
   const handleSearch = () => {
-    setPage(1);
-    void loadItems(
-      search.trim() || undefined,
-      contentSearch.trim() || undefined,
-      onlyFavorites ? true : undefined,
-      1,
-    );
+    setQuery((prev) => ({
+      ...prev,
+      bookTitle: searchInput.trim() || undefined,
+      contentKeyword: contentSearchInput.trim() || undefined,
+      isFavorite: onlyFavoritesInput ? true : undefined,
+      page: 1,
+    }));
   };
 
   const handleToggleFavoriteFilter = (checked: boolean) => {
-    setOnlyFavorites(checked);
-    setPage(1);
-    void loadItems(
-      search.trim() || undefined,
-      contentSearch.trim() || undefined,
-      checked ? true : undefined,
-      1,
-    );
+    setOnlyFavoritesInput(checked);
+    setQuery((prev) => ({
+      ...prev,
+      isFavorite: checked ? true : undefined,
+      page: 1,
+    }));
   };
 
   const handleToggleFavorite = async (item: Marginalia) => {
@@ -119,14 +128,24 @@ export default function ListPage() {
     setTogglingIds((prev) => new Set(prev).add(item.id));
     try {
       await toggleFavorite(item.id, nextFavorite);
-      setItems((prev) => {
-        if (onlyFavorites && !nextFavorite) {
-          return prev.filter((i) => i.id !== item.id);
+
+      if (query.isFavorite && !nextFavorite) {
+        const newTotal = total - 1;
+        const remaining = items.filter((i) => i.id !== item.id);
+        setTotal(newTotal);
+        setItems(remaining);
+
+        if (remaining.length === 0 && query.page > 1) {
+          const targetPage = query.page - 1;
+          setQuery((prev) => ({ ...prev, page: targetPage }));
         }
-        return prev.map((i) =>
-          i.id === item.id ? { ...i, is_favorite: nextFavorite } : i,
+      } else if (!query.isFavorite) {
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, is_favorite: nextFavorite } : i,
+          ),
         );
-      });
+      }
     } catch {
       setError("切换收藏失败");
     } finally {
@@ -145,14 +164,9 @@ export default function ListPage() {
     try {
       await deleteMarginalia(id);
       const newTotal = total - 1;
-      const maxPage = Math.max(1, Math.ceil(newTotal / pageSize));
-      const currentPage = page > maxPage ? maxPage : page;
-      void loadItems(
-        search.trim() || undefined,
-        contentSearch.trim() || undefined,
-        onlyFavorites ? true : undefined,
-        currentPage,
-      );
+      const maxPage = Math.max(1, Math.ceil(newTotal / query.pageSize));
+      const targetPage = query.page > maxPage ? maxPage : query.page;
+      setQuery((prev) => ({ ...prev, page: targetPage }));
     } catch {
       setError("删除失败");
     }
@@ -170,35 +184,21 @@ export default function ListPage() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
-    setPage(newPage);
-    void loadItems(
-      search.trim() || undefined,
-      contentSearch.trim() || undefined,
-      onlyFavorites ? true : undefined,
-      newPage,
-    );
+    setQuery((prev) => ({ ...prev, page: newPage }));
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setPage(1);
-    void loadItems(
-      search.trim() || undefined,
-      contentSearch.trim() || undefined,
-      onlyFavorites ? true : undefined,
-      1,
-      newPageSize,
-    );
+    setQuery((prev) => ({ ...prev, pageSize: newPageSize, page: 1 }));
   };
 
   const getPageNumbers = (): number[] => {
     const pages: number[] = [];
     const maxVisible = 5;
-    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    let start = Math.max(1, query.page - Math.floor(maxVisible / 2));
     let end = Math.min(totalPages, start + maxVisible - 1);
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
@@ -219,6 +219,19 @@ export default function ListPage() {
       }),
     [],
   );
+
+  const handleReset = () => {
+    setSearchInput("");
+    setContentSearchInput("");
+    setOnlyFavoritesInput(false);
+    setQuery({
+      bookTitle: undefined,
+      contentKeyword: undefined,
+      isFavorite: undefined,
+      page: 1,
+      pageSize: query.pageSize,
+    });
+  };
 
   return (
     <Box>
@@ -252,7 +265,7 @@ export default function ListPage() {
           alignItems="center"
           cursor="pointer"
           userSelect="none"
-          onClick={() => handleToggleFavoriteFilter(!onlyFavorites)}
+          onClick={() => handleToggleFavoriteFilter(!onlyFavoritesInput)}
           paddingX={2}
           paddingY={1}
           borderRadius="md"
@@ -262,7 +275,7 @@ export default function ListPage() {
             仅看收藏
           </Text>
           <Switch.Root
-            checked={onlyFavorites}
+            checked={onlyFavoritesInput}
             onCheckedChange={(e: { checked: boolean }) => handleToggleFavoriteFilter(e.checked)}
             colorPalette="yellow"
             padding={2}
@@ -278,16 +291,16 @@ export default function ListPage() {
       <HStack mb={6} gap={3} wrap="wrap">
         <Input
           placeholder="按书名搜索…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           maxW="320px"
           bg="white"
         />
         <Input
           placeholder="按眉批内容搜索…"
-          value={contentSearch}
-          onChange={(e) => setContentSearch(e.target.value)}
+          value={contentSearchInput}
+          onChange={(e) => setContentSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           maxW="320px"
           bg="white"
@@ -295,16 +308,7 @@ export default function ListPage() {
         <Button colorPalette="teal" variant="outline" onClick={handleSearch}>
           搜索
         </Button>
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setSearch("");
-            setContentSearch("");
-            setOnlyFavorites(false);
-            setPage(1);
-            void loadItems(undefined, undefined, undefined, 1);
-          }}
-        >
+        <Button variant="ghost" onClick={handleReset}>
           重置
         </Button>
       </HStack>
@@ -431,7 +435,7 @@ export default function ListPage() {
       {!loading && total > 0 && (
         <HStack justify="space-between" mt={4} flexWrap="wrap" gap={3}>
           <Text fontSize="sm" color="gray.600">
-            共 {total} 条记录，第 {page} / {totalPages} 页
+            共 {total} 条记录，第 {query.page} / {totalPages} 页
           </Text>
           <HStack gap={2} flexWrap="wrap">
             <HStack gap={2}>
@@ -442,7 +446,7 @@ export default function ListPage() {
                 size="sm"
                 width="90px"
                 collection={pageSizeCollection}
-                value={[String(pageSize)]}
+                value={[String(query.pageSize)]}
                 onValueChange={(e) =>
                   handlePageSizeChange(Number((e.value ?? [])[0]) || 10)
                 }
@@ -473,15 +477,15 @@ export default function ListPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => handlePageChange(1)}
-                disabled={page === 1}
+                disabled={query.page === 1}
               >
                 首页
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page === 1}
+                onClick={() => handlePageChange(query.page - 1)}
+                disabled={query.page === 1}
               >
                 上一页
               </Button>
@@ -489,8 +493,8 @@ export default function ListPage() {
                 <Button
                   key={num}
                   size="sm"
-                  variant={num === page ? "solid" : "outline"}
-                  colorPalette={num === page ? "teal" : undefined}
+                  variant={num === query.page ? "solid" : "outline"}
+                  colorPalette={num === query.page ? "teal" : undefined}
                   onClick={() => handlePageChange(num)}
                 >
                   {num}
@@ -499,8 +503,8 @@ export default function ListPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page === totalPages}
+                onClick={() => handlePageChange(query.page + 1)}
+                disabled={query.page === totalPages}
               >
                 下一页
               </Button>
@@ -508,7 +512,7 @@ export default function ListPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => handlePageChange(totalPages)}
-                disabled={page === totalPages}
+                disabled={query.page === totalPages}
               >
                 末页
               </Button>
