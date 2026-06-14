@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Tag
-from schemas import TagCreate, TagResponse
+from schemas import TagCreate, TagResponse, TagUpdate
 from utils import (
     bind_tag_to_marginalia,
     delete_tag_with_associations,
@@ -32,6 +32,20 @@ def create_tag(payload: TagCreate, db: DbSession) -> TagResponse:
         raise HTTPException(status_code=400, detail="标签名称已存在")
     item = Tag(name=payload.name)
     db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.put("/api/tags/{item_id}", response_model=TagResponse)
+def update_tag(item_id: int, payload: TagUpdate, db: DbSession) -> TagResponse:
+    item = db.query(Tag).filter(Tag.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="标签不存在")
+    existing = db.query(Tag).filter(Tag.name == payload.name, Tag.id != item_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="标签名称已存在")
+    item.name = payload.name
     db.commit()
     db.refresh(item)
     return item

@@ -8,6 +8,10 @@ class TagCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="标签名称")
 
 
+class TagUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="标签名称")
+
+
 class TagResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

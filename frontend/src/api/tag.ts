@@ -11,6 +11,11 @@ export async function createTag(payload: TagFormData): Promise<Tag> {
   return data;
 }
 
+export async function updateTag(id: number, payload: TagFormData): Promise<Tag> {
+  const { data } = await apiClient.put<Tag>(`/tags/${id}`, payload);
+  return data;
+}
+
 export async function deleteTag(id: number): Promise<void> {
   await apiClient.delete(`/tags/${id}`);
 }

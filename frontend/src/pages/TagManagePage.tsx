@@ -9,8 +9,8 @@ import {
   Table,
   Text,
 } from "@chakra-ui/react";
-import { useCallback, useEffect, useState } from "react";
-import { createTag, deleteTag, fetchTagList } from "../api/tag";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createTag, deleteTag, fetchTagList, updateTag } from "../api/tag";
 import type { Tag } from "../types/tag";
 
 export default function TagManagePage() {
@@ -19,6 +19,10 @@ export default function TagManagePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -60,7 +64,57 @@ export default function TagManagePage() {
     }
   };
 
+  const handleEditStart = (item: Tag) => {
+    setEditingId(item.id);
+    setEditName(item.name);
+    setError(null);
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }, 0);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditName("");
+  };
+
+  const handleEditSubmit = async (id: number) => {
+    const name = editName.trim();
+    if (!name) {
+      return;
+    }
+    setUpdatingId(id);
+    setError(null);
+    try {
+      await updateTag(id, { name });
+      setEditingId(null);
+      setEditName("");
+      void loadItems();
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "response" in err) {
+        const resp = (err as { response?: { data?: { detail?: string } } }).response;
+        setError(resp?.data?.detail || "更新失败");
+      } else {
+        setError("更新失败");
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: number) => {
+    if (e.key === "Enter") {
+      void handleEditSubmit(id);
+    } else if (e.key === "Escape") {
+      handleEditCancel();
+    }
+  };
+
   const handleDelete = async (id: number) => {
+    if (editingId === id) {
+      handleEditCancel();
+    }
     if (!window.confirm("确定删除这个标签吗？关联的摘录将自动解除绑定。")) {
       return;
     }
@@ -131,19 +185,65 @@ export default function TagManagePage() {
                 <Table.Row key={item.id}>
                   <Table.Cell>{item.id}</Table.Cell>
                   <Table.Cell>
-                    <Badge colorPalette="teal" variant="subtle">
-                      {item.name}
-                    </Badge>
+                    {editingId === item.id ? (
+                      <Input
+                        ref={editInputRef}
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => handleEditKeyDown(e, item.id)}
+                        size="sm"
+                        maxW="200px"
+                        autoFocus
+                      />
+                    ) : (
+                      <Badge colorPalette="teal" variant="subtle">
+                        {item.name}
+                      </Badge>
+                    )}
                   </Table.Cell>
                   <Table.Cell textAlign="end">
-                    <Button
-                      size="xs"
-                      colorPalette="red"
-                      variant="outline"
-                      onClick={() => void handleDelete(item.id)}
-                    >
-                      删除
-                    </Button>
+                    <HStack gap={2} justify="flex-end">
+                      {editingId === item.id ? (
+                        <>
+                          <Button
+                            size="xs"
+                            colorPalette="teal"
+                            onClick={() => void handleEditSubmit(item.id)}
+                            loading={updatingId === item.id}
+                            loadingText="保存中…"
+                            disabled={!editName.trim()}
+                          >
+                            确认
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={handleEditCancel}
+                            disabled={updatingId === item.id}
+                          >
+                            取消
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => handleEditStart(item)}
+                          >
+                            编辑
+                          </Button>
+                          <Button
+                            size="xs"
+                            colorPalette="red"
+                            variant="outline"
+                            onClick={() => void handleDelete(item.id)}
+                          >
+                            删除
+                          </Button>
+                        </>
+                      )}
+                    </HStack>
                   </Table.Cell>
                 </Table.Row>
               ))}
