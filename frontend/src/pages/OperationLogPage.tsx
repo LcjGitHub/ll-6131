@@ -35,6 +35,10 @@ function getOperationTypeLabel(type: string): string {
       return "修改";
     case "delete":
       return "删除";
+    case "restore":
+      return "恢复";
+    case "permanent_delete":
+      return "彻底删除";
     default:
       return type;
   }
@@ -47,6 +51,10 @@ function getOperationTypeColor(type: string): string {
     case "update":
       return "blue";
     case "delete":
+      return "red";
+    case "restore":
+      return "teal";
+    case "permanent_delete":
       return "red";
     default:
       return "gray";
@@ -133,6 +141,8 @@ export default function OperationLogPage() {
           { value: "create", label: "新增" },
           { value: "update", label: "修改" },
           { value: "delete", label: "删除" },
+          { value: "restore", label: "恢复" },
+          { value: "permanent_delete", label: "彻底删除" },
         ],
       }),
     [],

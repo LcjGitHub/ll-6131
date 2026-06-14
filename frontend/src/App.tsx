@@ -8,6 +8,7 @@ import ListPage from "./pages/ListPage";
 import OperationLogPage from "./pages/OperationLogPage";
 import StatsOverviewPage from "./pages/StatsOverviewPage";
 import TagManagePage from "./pages/TagManagePage";
+import TrashPage from "./pages/TrashPage";
 
 export default function App() {
   return (
@@ -37,6 +38,9 @@ export default function App() {
               <Link asChild color="teal.600" fontWeight="medium">
                 <RouterLink to="/logs">操作日志</RouterLink>
               </Link>
+              <Link asChild color="teal.600" fontWeight="medium">
+                <RouterLink to="/trash">回收站</RouterLink>
+              </Link>
             </HStack>
           </HStack>
         </Container>
@@ -54,6 +58,7 @@ export default function App() {
           <Route path="/books/edit/:id" element={<BookFormPage />} />
           <Route path="/stats" element={<StatsOverviewPage />} />
           <Route path="/logs" element={<OperationLogPage />} />
+          <Route path="/trash" element={<TrashPage />} />
         </Routes>
       </Container>
     </Box>

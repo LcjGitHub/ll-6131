@@ -17,15 +17,16 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 @router.get("/summary", response_model=StatsSummaryResponse)
 def stats_summary(db: DbSession) -> StatsSummaryResponse:
-    total_marginalia = db.query(func.count(Marginalia.id)).scalar() or 0
+    total_marginalia = db.query(func.count(Marginalia.id)).filter(Marginalia.is_deleted == False).scalar() or 0
     distinct_book_count = (
-        db.query(func.count(func.distinct(Marginalia.book_id))).scalar() or 0
+        db.query(func.count(func.distinct(Marginalia.book_id))).filter(Marginalia.is_deleted == False).scalar() or 0
     )
     channel_rows = (
         db.query(
             Marginalia.purchase_channel,
             func.count(Marginalia.id),
         )
+        .filter(Marginalia.is_deleted == False)
         .group_by(Marginalia.purchase_channel)
         .all()
     )

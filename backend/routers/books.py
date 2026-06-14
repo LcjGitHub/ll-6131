@@ -98,7 +98,7 @@ def delete_book(item_id: int, db: DbSession) -> None:
 
     marginalia_count = (
         db.query(func.count(Marginalia.id))
-        .filter(Marginalia.book_id == item_id)
+        .filter(Marginalia.book_id == item_id, Marginalia.is_deleted == False)
         .scalar()
         or 0
     )

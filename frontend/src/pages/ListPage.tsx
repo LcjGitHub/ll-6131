@@ -214,7 +214,7 @@ export default function ListPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("确定删除这条摘录吗？")) {
+    if (!window.confirm("确定将这条摘录移入回收站吗？可在回收站中恢复。")) {
       return;
     }
     try {
@@ -235,7 +235,7 @@ export default function ListPage() {
 
   const handleBatchDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`确定删除选中的 ${selectedIds.size} 条摘录吗？`)) {
+    if (!window.confirm(`确定将选中的 ${selectedIds.size} 条摘录移入回收站吗？可在回收站中恢复。`)) {
       return;
     }
     setBatchDeleting(true);

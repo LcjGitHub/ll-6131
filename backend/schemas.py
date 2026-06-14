@@ -94,6 +94,8 @@ class MarginaliaResponse(MarginaliaBase):
     book_id: int
     book_title: str
     tags: list[TagResponse] = Field(default_factory=list, description="关联标签")
+    is_deleted: bool = Field(False, description="是否已删除")
+    deleted_at: datetime | None = Field(None, description="删除时间")
 
 
 class PaginatedMarginaliaResponse(BaseModel):

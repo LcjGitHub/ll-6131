@@ -4,7 +4,7 @@ import type {
 import { apiClient } from "./client";
 
 export async function fetchOperationLogList(
-  operationType?: "create" | "update" | "delete",
+  operationType?: "create" | "update" | "delete" | "restore" | "permanent_delete",
   targetType?: "book" | "marginalia",
   page: number = 1,
   pageSize: number = 10,

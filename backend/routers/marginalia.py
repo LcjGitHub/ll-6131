@@ -43,7 +43,7 @@ def list_marginalia(
     page: int = Query(1, ge=1, description="页码，从1开始"),
     page_size: int = Query(10, ge=1, le=100, description="每页条数"),
 ) -> PaginatedMarginaliaResponse:
-    query = db.query(Marginalia)
+    query = db.query(Marginalia).filter(Marginalia.is_deleted == False)
     if book_title:
         like = f"%{book_title}%"
         query = query.filter(Marginalia.book_title.ilike(like))
@@ -80,7 +80,7 @@ def list_marginalia(
 
 @router.get("/export")
 def export_marginalia(db: DbSession) -> StreamingResponse:
-    items = db.query(Marginalia).order_by(Marginalia.id.desc()).all()
+    items = db.query(Marginalia).filter(Marginalia.is_deleted == False).order_by(Marginalia.id.desc()).all()
 
     buffer = io.StringIO()
     buffer.write("\ufeff")
@@ -111,10 +111,70 @@ def export_marginalia(db: DbSession) -> StreamingResponse:
     )
 
 
+@router.get("/trash", response_model=PaginatedMarginaliaResponse)
+def list_trash(
+    db: DbSession,
+    page: int = Query(1, ge=1, description="页码，从1开始"),
+    page_size: int = Query(10, ge=1, le=100, description="每页条数"),
+) -> PaginatedMarginaliaResponse:
+    query = db.query(Marginalia).filter(Marginalia.is_deleted == True)
+    total = query.count()
+    items = query.order_by(Marginalia.deleted_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedMarginaliaResponse(
+        items=[marginalia_to_response(i) for i in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.post("/{item_id}/restore", response_model=MarginaliaResponse)
+def restore_marginalia(item_id: int, db: DbSession) -> MarginaliaResponse:
+    item = db.get(Marginalia, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="摘录不存在")
+    if not item.is_deleted:
+        raise HTTPException(status_code=400, detail="该摘录未在回收站中")
+
+    item.is_deleted = False
+    item.deleted_at = None
+    db.commit()
+    db.refresh(item)
+    create_operation_log(
+        db,
+        operation_type="restore",
+        target_type="marginalia",
+        target_id=item.id,
+        summary=f"从回收站恢复：《{item.book_title}》第{item.page_number}页",
+    )
+    return marginalia_to_response(item)
+
+
+@router.delete("/{item_id}/permanent", status_code=204)
+def permanent_delete_marginalia(item_id: int, db: DbSession) -> None:
+    item = db.get(Marginalia, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="摘录不存在")
+    if not item.is_deleted:
+        raise HTTPException(status_code=400, detail="该摘录未在回收站中，请先移入回收站")
+
+    book_title = item.book_title
+    page_number = item.page_number
+    create_operation_log(
+        db,
+        operation_type="permanent_delete",
+        target_type="marginalia",
+        target_id=item_id,
+        summary=f"彻底删除：《{book_title}》第{page_number}页",
+    )
+    db.delete(item)
+    db.commit()
+
+
 @router.get("/{item_id}", response_model=MarginaliaResponse)
 def get_marginalia(item_id: int, db: DbSession) -> MarginaliaResponse:
     item = db.get(Marginalia, item_id)
-    if item is None:
+    if item is None or item.is_deleted:
         raise HTTPException(status_code=404, detail="摘录不存在")
     return marginalia_to_response(item)
 
@@ -159,7 +219,7 @@ def update_marginalia(
     db: DbSession,
 ) -> MarginaliaResponse:
     item = db.get(Marginalia, item_id)
-    if item is None:
+    if item is None or item.is_deleted:
         raise HTTPException(status_code=404, detail="摘录不存在")
 
     book = db.get(Book, payload.book_id)
@@ -196,17 +256,20 @@ def delete_marginalia(item_id: int, db: DbSession) -> None:
     item = db.get(Marginalia, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="摘录不存在")
+    if item.is_deleted:
+        raise HTTPException(status_code=404, detail="摘录不存在")
 
     book_title = item.book_title
     page_number = item.page_number
+    item.is_deleted = True
+    item.deleted_at = datetime.now()
     create_operation_log(
         db,
         operation_type="delete",
         target_type="marginalia",
         target_id=item_id,
-        summary=f"删除摘录：《{book_title}》第{page_number}页",
+        summary=f"移入回收站：《{book_title}》第{page_number}页",
     )
-    db.delete(item)
     db.commit()
 
 
@@ -216,18 +279,19 @@ def batch_delete_marginalia(payload: BatchDeleteRequest, db: DbSession) -> Batch
     if not ids:
         return BatchDeleteResponse(deleted_count=0)
 
-    items = db.query(Marginalia).filter(Marginalia.id.in_(ids)).all()
+    items = db.query(Marginalia).filter(Marginalia.id.in_(ids), Marginalia.is_deleted == False).all()
     deleted_count = len(items)
 
     for item in items:
+        item.is_deleted = True
+        item.deleted_at = datetime.now()
         create_operation_log(
             db,
             operation_type="delete",
             target_type="marginalia",
             target_id=item.id,
-            summary=f"批量删除摘录：《{item.book_title}》第{item.page_number}页",
+            summary=f"批量移入回收站：《{item.book_title}》第{item.page_number}页",
         )
-        db.delete(item)
 
     db.commit()
     return BatchDeleteResponse(deleted_count=deleted_count)
@@ -240,7 +304,7 @@ def toggle_favorite(
     db: DbSession,
 ) -> MarginaliaResponse:
     item = db.get(Marginalia, item_id)
-    if item is None:
+    if item is None or item.is_deleted:
         raise HTTPException(status_code=404, detail="摘录不存在")
     item.is_favorite = payload.is_favorite
     db.commit()

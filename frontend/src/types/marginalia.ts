@@ -13,6 +13,8 @@ export interface Marginalia {
   is_favorite: boolean;
   entry_date: string;
   tags: Tag[];
+  is_deleted: boolean;
+  deleted_at: string | null;
 }
 
 export interface MarginaliaFormData {

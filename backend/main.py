@@ -34,6 +34,10 @@ def _ensure_marginalia_columns() -> None:
             conn.execute(
                 text("ALTER TABLE marginalia ADD COLUMN entry_date DATE NOT NULL DEFAULT :d")
             ).bindparams(d=date.today().isoformat())
+        if "is_deleted" not in col_names:
+            conn.execute(text("ALTER TABLE marginalia ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
+        if "deleted_at" not in col_names:
+            conn.execute(text("ALTER TABLE marginalia ADD COLUMN deleted_at DATETIME"))
         conn.commit()
 
 

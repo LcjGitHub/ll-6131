@@ -61,6 +61,8 @@ class Marginalia(Base):
     purchase_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     entry_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     book: Mapped[Book] = relationship(back_populates="marginalia")
     tags: Mapped[list["Tag"]] = relationship(

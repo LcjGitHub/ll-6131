@@ -2,7 +2,7 @@
 
 export interface OperationLog {
   id: number;
-  operation_type: "create" | "update" | "delete";
+  operation_type: "create" | "update" | "delete" | "restore" | "permanent_delete";
   target_type: "book" | "marginalia";
   target_id: number;
   summary: string;
@@ -16,6 +16,6 @@ export interface PaginatedOperationLog {
   page_size: number;
 }
 
-export type OperationTypeFilter = "all" | "create" | "update" | "delete";
+export type OperationTypeFilter = "all" | "create" | "update" | "delete" | "restore" | "permanent_delete";
 
 export type TargetTypeFilter = "all" | "book" | "marginalia";

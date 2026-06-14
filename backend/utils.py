@@ -16,7 +16,7 @@ class ToggleFavoritePayload(BaseModel):
 def book_to_response(book: Book, db: Session) -> BookResponse:
     count = (
         db.query(func.count(Marginalia.id))
-        .filter(Marginalia.book_id == book.id)
+        .filter(Marginalia.book_id == book.id, Marginalia.is_deleted == False)
         .scalar()
         or 0
     )
@@ -42,6 +42,8 @@ def marginalia_to_response(item: Marginalia) -> MarginaliaResponse:
         is_favorite=item.is_favorite,
         entry_date=item.entry_date,
         tags=[TagResponse(id=t.id, name=t.name) for t in item.tags],
+        is_deleted=item.is_deleted,
+        deleted_at=item.deleted_at,
     )
 
 

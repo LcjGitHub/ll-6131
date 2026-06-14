@@ -95,3 +95,22 @@ export async function exportMarginalia(): Promise<void> {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export async function fetchTrashList(
+  page: number = 1,
+  pageSize: number = 10,
+): Promise<PaginatedMarginalia> {
+  const { data } = await apiClient.get<PaginatedMarginalia>("/marginalia/trash", {
+    params: { page, page_size: pageSize },
+  });
+  return data;
+}
+
+export async function restoreMarginalia(id: number): Promise<Marginalia> {
+  const { data } = await apiClient.post<Marginalia>(`/marginalia/${id}/restore`);
+  return data;
+}
+
+export async function permanentDeleteMarginalia(id: number): Promise<void> {
+  await apiClient.delete(`/marginalia/${id}/permanent`);
+}
