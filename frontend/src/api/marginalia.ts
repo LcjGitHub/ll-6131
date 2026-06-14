@@ -5,10 +5,13 @@ import type {
 } from "../types/marginalia";
 import { apiClient } from "./client";
 
+export type SortBy = "default" | "page_asc" | "page_desc";
+
 export async function fetchMarginaliaList(
   bookTitle?: string,
   contentKeyword?: string,
   isFavorite?: boolean,
+  sortBy?: SortBy,
   page: number = 1,
   pageSize: number = 10,
 ): Promise<PaginatedMarginalia> {
@@ -16,6 +19,7 @@ export async function fetchMarginaliaList(
   if (bookTitle) params.book_title = bookTitle;
   if (contentKeyword) params.content_keyword = contentKeyword;
   if (isFavorite !== undefined) params.is_favorite = isFavorite;
+  if (sortBy && sortBy !== "default") params.sort_by = sortBy;
   params.page = page;
   params.page_size = pageSize;
   const { data } = await apiClient.get<PaginatedMarginalia>("/marginalia", {

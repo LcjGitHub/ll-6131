@@ -259,6 +259,7 @@ def list_marginalia(
     book_title: str | None = Query(None, description="按书名模糊搜索"),
     content_keyword: str | None = Query(None, description="按眉批内容模糊搜索"),
     is_favorite: bool | None = Query(None, description="仅看收藏"),
+    sort_by: str | None = Query(None, description="排序方式：page_asc-页码升序，page_desc-页码降序，默认按编号倒序"),
     page: int = Query(1, ge=1, description="页码，从1开始"),
     page_size: int = Query(10, ge=1, le=100, description="每页条数"),
 ) -> PaginatedMarginaliaResponse:
@@ -272,7 +273,15 @@ def list_marginalia(
     if is_favorite is not None:
         query = query.filter(Marginalia.is_favorite == is_favorite)
     total = query.count()
-    items = query.order_by(Marginalia.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    if sort_by == "page_asc":
+        query = query.order_by(Marginalia.page_number.asc(), Marginalia.id.desc())
+    elif sort_by == "page_desc":
+        query = query.order_by(Marginalia.page_number.desc(), Marginalia.id.desc())
+    else:
+        query = query.order_by(Marginalia.id.desc())
+
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
     return PaginatedMarginaliaResponse(
         items=[_marginalia_to_response(i) for i in items],
         total=total,

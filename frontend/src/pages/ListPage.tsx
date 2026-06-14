@@ -25,6 +25,7 @@ import {
   exportMarginalia,
   fetchMarginaliaList,
   toggleFavorite,
+  type SortBy,
 } from "../api/marginalia";
 import type { Marginalia } from "../types/marginalia";
 
@@ -45,10 +46,38 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function SortIcon({ sortBy }: { sortBy: SortBy }) {
+  if (sortBy === "page_asc") {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 5v14" />
+        <path d="m19 12-7 7-7-7" />
+      </svg>
+    );
+  }
+  if (sortBy === "page_desc") {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19V5" />
+        <path d="m5 12 7-7 7 7" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4">
+      <path d="M7 4v16" />
+      <path d="M17 4v16" />
+      <path d="M3 8h8" />
+      <path d="M13 16h8" />
+    </svg>
+  );
+}
+
 interface ListQuery {
   bookTitle: string | undefined;
   contentKeyword: string | undefined;
   isFavorite: boolean | undefined;
+  sortBy: SortBy;
   page: number;
   pageSize: number;
 }
@@ -72,6 +101,7 @@ export default function ListPage() {
     bookTitle: undefined,
     contentKeyword: undefined,
     isFavorite: undefined,
+    sortBy: "default",
     page: 1,
     pageSize: 10,
   });
@@ -87,6 +117,7 @@ export default function ListPage() {
         query.bookTitle,
         query.contentKeyword,
         query.isFavorite,
+        query.sortBy,
         query.page,
         query.pageSize,
       );
@@ -116,6 +147,27 @@ export default function ListPage() {
       isFavorite: onlyFavoritesInput ? true : undefined,
       page: 1,
     }));
+  };
+
+  const handleSortToggle = () => {
+    setSelectedIds(new Set());
+    setQuery((prev) => {
+      let nextSort: SortBy;
+      if (prev.sortBy === "default") {
+        nextSort = "page_asc";
+      } else if (prev.sortBy === "page_asc") {
+        nextSort = "page_desc";
+      } else {
+        nextSort = "default";
+      }
+      return { ...prev, sortBy: nextSort, page: 1 };
+    });
+  };
+
+  const getSortLabel = (sort: SortBy): string => {
+    if (sort === "page_asc") return "页码升序";
+    if (sort === "page_desc") return "页码降序";
+    return "默认排序";
   };
 
   const handleToggleFavoriteFilter = (checked: boolean) => {
@@ -284,6 +336,7 @@ export default function ListPage() {
       bookTitle: undefined,
       contentKeyword: undefined,
       isFavorite: undefined,
+      sortBy: "default",
       page: 1,
       pageSize: query.pageSize,
     });
@@ -427,7 +480,21 @@ export default function ListPage() {
                 </Table.ColumnHeader>
                 <Table.ColumnHeader>书名</Table.ColumnHeader>
                 <Table.ColumnHeader>标签</Table.ColumnHeader>
-                <Table.ColumnHeader>页码</Table.ColumnHeader>
+                <Table.ColumnHeader>
+                  <HStack
+                    gap={1}
+                    cursor="pointer"
+                    onClick={handleSortToggle}
+                    userSelect="none"
+                    _hover={{ color: "teal.600" }}
+                    transition="color 0.15s"
+                    color={query.sortBy !== "default" ? "teal.600" : "inherit"}
+                    title={`点击切换排序：${getSortLabel(query.sortBy)}`}
+                  >
+                    <span>页码</span>
+                    <SortIcon sortBy={query.sortBy} />
+                  </HStack>
+                </Table.ColumnHeader>
                 <Table.ColumnHeader>原文</Table.ColumnHeader>
                 <Table.ColumnHeader>眉批内容</Table.ColumnHeader>
                 <Table.ColumnHeader>购入渠道</Table.ColumnHeader>
