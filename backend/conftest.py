@@ -1,11 +1,11 @@
 import os
 import sys
-import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -15,18 +15,16 @@ from main import app
 
 @pytest.fixture(scope="function")
 def db_engine():
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    db_url = f"sqlite:///{tmp.name}"
+    db_url = "sqlite:///:memory:"
     engine = create_engine(
         db_url,
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
-    os.unlink(tmp.name)
 
 
 @pytest.fixture(scope="function")
@@ -51,6 +49,16 @@ def client(db_engine, db_session):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
+
+    original_routers = app.router.on_startup[:]
+    app.router.on_startup = []
+    original_shutdown = app.router.on_shutdown[:]
+    app.router.on_shutdown = []
+
+    try:
+        with TestClient(app, raise_server_exceptions=False) as c:
+            yield c
+    finally:
+        app.router.on_startup = original_routers
+        app.router.on_shutdown = original_shutdown
+        app.dependency_overrides.clear()
