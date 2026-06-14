@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Book, Marginalia
 from schemas import BookCreate, BookOption, BookResponse, BookUpdate
-from utils import book_to_response
+from utils import book_to_response, create_operation_log
 
 router = APIRouter(prefix="/api/books", tags=["books"])
 
@@ -48,6 +48,13 @@ def create_book(payload: BookCreate, db: DbSession) -> BookResponse:
     db.add(item)
     db.commit()
     db.refresh(item)
+    create_operation_log(
+        db,
+        operation_type="create",
+        target_type="book",
+        target_id=item.id,
+        summary=f"新增书目：{item.title}（{item.author}）",
+    )
     return book_to_response(item, db)
 
 
@@ -73,6 +80,13 @@ def update_book(
 
     db.commit()
     db.refresh(item)
+    create_operation_log(
+        db,
+        operation_type="update",
+        target_type="book",
+        target_id=item.id,
+        summary=f"更新书目：{item.title}（{item.author}）",
+    )
     return book_to_response(item, db)
 
 
@@ -94,5 +108,14 @@ def delete_book(item_id: int, db: DbSession) -> None:
             detail=f"该书目下仍有 {marginalia_count} 条摘录，无法删除",
         )
 
+    book_title = item.title
+    book_author = item.author
+    create_operation_log(
+        db,
+        operation_type="delete",
+        target_type="book",
+        target_id=item_id,
+        summary=f"删除书目：{book_title}（{book_author}）",
+    )
     db.delete(item)
     db.commit()

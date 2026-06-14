@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from models import Book, Marginalia, Tag, marginalia_tag
+from models import Book, Marginalia, Tag, OperationLog, marginalia_tag
 from schemas import BookResponse, MarginaliaResponse, TagResponse
 
 
@@ -79,4 +79,21 @@ def delete_tag_with_associations(db: Session, tag_id: int) -> None:
         raise HTTPException(status_code=404, detail="标签不存在")
     db.execute(marginalia_tag.delete().where(marginalia_tag.c.tag_id == tag_id))
     db.delete(item)
+    db.commit()
+
+
+def create_operation_log(
+    db: Session,
+    operation_type: str,
+    target_type: str,
+    target_id: int,
+    summary: str,
+) -> None:
+    log = OperationLog(
+        operation_type=operation_type,
+        target_type=target_type,
+        target_id=target_id,
+        summary=summary[:500],
+    )
+    db.add(log)
     db.commit()

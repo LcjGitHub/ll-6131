@@ -1,7 +1,7 @@
 """Pydantic 请求/响应模型。"""
 
 from pydantic import BaseModel, ConfigDict, Field
-from datetime import date
+from datetime import date, datetime
 
 
 class TagCreate(BaseModel):
@@ -109,3 +109,21 @@ class BatchDeleteRequest(BaseModel):
 
 class BatchDeleteResponse(BaseModel):
     deleted_count: int = Field(..., description="成功删除的条数")
+
+
+class OperationLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    operation_type: str = Field(..., description="操作类型：create/update/delete")
+    target_type: str = Field(..., description="目标类型：book/marginalia")
+    target_id: int = Field(..., description="目标编号")
+    summary: str = Field(..., description="操作简要内容")
+    created_at: datetime = Field(..., description="操作时间")
+
+
+class PaginatedOperationLogResponse(BaseModel):
+    items: list[OperationLogResponse] = Field(..., description="当前页数据")
+    total: int = Field(..., description="总条数")
+    page: int = Field(..., description="当前页码")
+    page_size: int = Field(..., description="每页条数")

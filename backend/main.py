@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from database import Base, SessionLocal, engine
 from models import Marginalia
-from routers import books, marginalia, stats, tags
+from routers import books, logs, marginalia, stats, tags
 from seed import MARGINALIA_SEED_DATA, seed_books, seed_marginalia, seed_tags
 
 app = FastAPI(title="旧书页眉批摘录库", version="0.1.0")
@@ -82,3 +82,4 @@ app.include_router(books.router)
 app.include_router(marginalia.router)
 app.include_router(tags.router)
 app.include_router(stats.router)
+app.include_router(logs.router)

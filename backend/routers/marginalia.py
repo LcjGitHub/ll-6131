@@ -23,6 +23,7 @@ from schemas import (
 )
 from utils import (
     ToggleFavoritePayload,
+    create_operation_log,
     marginalia_to_response,
     resolve_tags_by_ids,
 )
@@ -141,6 +142,13 @@ def create_marginalia(payload: MarginaliaCreate, db: DbSession) -> MarginaliaRes
     db.add(item)
     db.commit()
     db.refresh(item)
+    create_operation_log(
+        db,
+        operation_type="create",
+        target_type="marginalia",
+        target_id=item.id,
+        summary=f"新增摘录：《{item.book_title}》第{item.page_number}页",
+    )
     return marginalia_to_response(item)
 
 
@@ -173,6 +181,13 @@ def update_marginalia(
 
     db.commit()
     db.refresh(item)
+    create_operation_log(
+        db,
+        operation_type="update",
+        target_type="marginalia",
+        target_id=item.id,
+        summary=f"更新摘录：《{item.book_title}》第{item.page_number}页",
+    )
     return marginalia_to_response(item)
 
 
@@ -182,6 +197,15 @@ def delete_marginalia(item_id: int, db: DbSession) -> None:
     if item is None:
         raise HTTPException(status_code=404, detail="摘录不存在")
 
+    book_title = item.book_title
+    page_number = item.page_number
+    create_operation_log(
+        db,
+        operation_type="delete",
+        target_type="marginalia",
+        target_id=item_id,
+        summary=f"删除摘录：《{book_title}》第{page_number}页",
+    )
     db.delete(item)
     db.commit()
 
@@ -196,6 +220,13 @@ def batch_delete_marginalia(payload: BatchDeleteRequest, db: DbSession) -> Batch
     deleted_count = len(items)
 
     for item in items:
+        create_operation_log(
+            db,
+            operation_type="delete",
+            target_type="marginalia",
+            target_id=item.id,
+            summary=f"批量删除摘录：《{item.book_title}》第{item.page_number}页",
+        )
         db.delete(item)
 
     db.commit()

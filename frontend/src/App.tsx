@@ -5,6 +5,7 @@ import BookListPage from "./pages/BookListPage";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
 import ListPage from "./pages/ListPage";
+import OperationLogPage from "./pages/OperationLogPage";
 import StatsOverviewPage from "./pages/StatsOverviewPage";
 import TagManagePage from "./pages/TagManagePage";
 
@@ -33,6 +34,9 @@ export default function App() {
               <Link asChild color="teal.600" fontWeight="medium">
                 <RouterLink to="/stats">统计概览</RouterLink>
               </Link>
+              <Link asChild color="teal.600" fontWeight="medium">
+                <RouterLink to="/logs">操作日志</RouterLink>
+              </Link>
             </HStack>
           </HStack>
         </Container>
@@ -49,6 +53,7 @@ export default function App() {
           <Route path="/books/new" element={<BookFormPage />} />
           <Route path="/books/edit/:id" element={<BookFormPage />} />
           <Route path="/stats" element={<StatsOverviewPage />} />
+          <Route path="/logs" element={<OperationLogPage />} />
         </Routes>
       </Container>
     </Box>

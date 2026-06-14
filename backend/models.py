@@ -1,8 +1,8 @@
 """眉批摘录 ORM 模型。"""
 
-from sqlalchemy import Column, Integer, String, Table, Text, ForeignKey, UniqueConstraint, Boolean, Date
+from sqlalchemy import Column, Integer, String, Table, Text, ForeignKey, UniqueConstraint, Boolean, Date, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import date
+from datetime import date, datetime
 
 from database import Base
 
@@ -66,4 +66,19 @@ class Marginalia(Base):
     tags: Mapped[list["Tag"]] = relationship(
         secondary=marginalia_tag,
         back_populates="marginalia",
+    )
+
+
+class OperationLog(Base):
+    """操作日志表。"""
+
+    __tablename__ = "operation_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    operation_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    summary: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.now, index=True
     )
