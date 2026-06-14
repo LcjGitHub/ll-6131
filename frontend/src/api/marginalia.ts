@@ -3,6 +3,7 @@ import type {
   MarginaliaFormData,
   PaginatedMarginalia,
   ImportResult,
+  CompareResult,
 } from "../types/marginalia";
 import { apiClient } from "./client";
 
@@ -123,6 +124,13 @@ export async function importMarginalia(file: File): Promise<ImportResult> {
     headers: {
       "Content-Type": "multipart/form-data",
     },
+  });
+  return data;
+}
+
+export async function compareMarginalia(id1: number, id2: number): Promise<CompareResult> {
+  const { data } = await apiClient.get<CompareResult>("/marginalia/compare", {
+    params: { id1, id2 },
   });
   return data;
 }

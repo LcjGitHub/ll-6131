@@ -16,6 +16,7 @@ from models import Book, Marginalia
 from schemas import (
     BatchDeleteRequest,
     BatchDeleteResponse,
+    CompareResponse,
     ImportResponse,
     ImportErrorDetail,
     MarginaliaCreate,
@@ -265,6 +266,24 @@ async def import_marginalia(
         duplicate_count=duplicate_count,
         error_count=error_count,
         errors=errors,
+    )
+
+
+@router.get("/compare", response_model=CompareResponse)
+def compare_marginalia(
+    db: DbSession,
+    id1: int = Query(..., description="第一条摘录编号"),
+    id2: int = Query(..., description="第二条摘录编号"),
+) -> CompareResponse:
+    item1 = db.get(Marginalia, id1)
+    if item1 is None or item1.is_deleted:
+        raise HTTPException(status_code=404, detail=f"摘录 {id1} 不存在")
+    item2 = db.get(Marginalia, id2)
+    if item2 is None or item2.is_deleted:
+        raise HTTPException(status_code=404, detail=f"摘录 {id2} 不存在")
+    return CompareResponse(
+        left=marginalia_to_response(item1),
+        right=marginalia_to_response(item2),
     )
 
 

@@ -2,6 +2,7 @@ import { Box, Container, Heading, HStack, Link } from "@chakra-ui/react";
 import { Link as RouterLink, Route, Routes } from "react-router-dom";
 import BookFormPage from "./pages/BookFormPage";
 import BookListPage from "./pages/BookListPage";
+import ComparePage from "./pages/ComparePage";
 import DataManagePage from "./pages/DataManagePage";
 import DetailPage from "./pages/DetailPage";
 import FormPage from "./pages/FormPage";
@@ -45,6 +46,9 @@ export default function App() {
               <Link asChild color="teal.600" fontWeight="medium">
                 <RouterLink to="/data-manage">数据管理</RouterLink>
               </Link>
+              <Link asChild color="teal.600" fontWeight="medium">
+                <RouterLink to="/compare">摘录比对</RouterLink>
+              </Link>
             </HStack>
           </HStack>
         </Container>
@@ -64,6 +68,7 @@ export default function App() {
           <Route path="/logs" element={<OperationLogPage />} />
           <Route path="/trash" element={<TrashPage />} />
           <Route path="/data-manage" element={<DataManagePage />} />
+          <Route path="/compare" element={<ComparePage />} />
         </Routes>
       </Container>
     </Box>

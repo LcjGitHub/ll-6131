@@ -46,3 +46,8 @@ export interface ImportResult {
   error_count: number;
   errors: ImportErrorDetail[];
 }
+
+export interface CompareResult {
+  left: Marginalia;
+  right: Marginalia;
+}

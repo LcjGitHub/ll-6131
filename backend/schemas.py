@@ -131,6 +131,11 @@ class PaginatedOperationLogResponse(BaseModel):
     page_size: int = Field(..., description="每页条数")
 
 
+class CompareResponse(BaseModel):
+    left: MarginaliaResponse = Field(..., description="左侧摘录")
+    right: MarginaliaResponse = Field(..., description="右侧摘录")
+
+
 class ImportErrorDetail(BaseModel):
     row: int = Field(..., description="行号")
     error: str = Field(..., description="错误原因")
