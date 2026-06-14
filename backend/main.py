@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, text
+from sqlalchemy import func, text, cast, Integer
 from sqlalchemy.orm import Session
 from urllib.parse import quote
 
@@ -275,9 +275,17 @@ def list_marginalia(
     total = query.count()
 
     if sort_by == "page_asc":
-        query = query.order_by(Marginalia.page_number.asc(), Marginalia.id.desc())
+        page_num_expr = cast(
+            func.substr(Marginalia.page_number, func.instr(Marginalia.page_number, " ") + 1),
+            Integer,
+        )
+        query = query.order_by(page_num_expr.asc(), Marginalia.id.desc())
     elif sort_by == "page_desc":
-        query = query.order_by(Marginalia.page_number.desc(), Marginalia.id.desc())
+        page_num_expr = cast(
+            func.substr(Marginalia.page_number, func.instr(Marginalia.page_number, " ") + 1),
+            Integer,
+        )
+        query = query.order_by(page_num_expr.desc(), Marginalia.id.desc())
     else:
         query = query.order_by(Marginalia.id.desc())
 

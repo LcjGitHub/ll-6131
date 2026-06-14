@@ -50,16 +50,14 @@ function SortIcon({ sortBy }: { sortBy: SortBy }) {
   if (sortBy === "page_asc") {
     return (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 5v14" />
-        <path d="m19 12-7 7-7-7" />
+        <polygon points="12 4 20 18 4 18" />
       </svg>
     );
   }
   if (sortBy === "page_desc") {
     return (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 19V5" />
-        <path d="m5 12 7-7 7 7" />
+        <polygon points="12 20 4 6 20 6" />
       </svg>
     );
   }
@@ -493,6 +491,21 @@ export default function ListPage() {
                   >
                     <span>页码</span>
                     <SortIcon sortBy={query.sortBy} />
+                    {query.sortBy !== "default" && (
+                      <Text
+                        as="span"
+                        fontSize="xs"
+                        fontWeight="normal"
+                        bg="teal.50"
+                        color="teal.700"
+                        px={1.5}
+                        py={0.5}
+                        borderRadius="sm"
+                        lineHeight="1"
+                      >
+                        {query.sortBy === "page_asc" ? "升序" : "降序"}
+                      </Text>
+                    )}
                   </HStack>
                 </Table.ColumnHeader>
                 <Table.ColumnHeader>原文</Table.ColumnHeader>
