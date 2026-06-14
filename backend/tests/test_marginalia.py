@@ -220,3 +220,110 @@ class TestMarginaliaAPI:
 
         list_resp = client.get("/api/marginalia")
         assert list_resp.json()["total"] == 0
+
+
+class TestMarginaliaImport:
+    def test_import_csv_success(self, client):
+        csv_content = (
+            "书名,页码,原文,眉批内容,购入渠道\n"
+            "测试书名1,第 1 页,原文内容1,眉批内容1,孔夫子旧书网\n"
+            "测试书名2,第 2 页,原文内容2,眉批内容2,淘宝旧书\n"
+        )
+        files = {"file": ("test.csv", csv_content.encode("utf-8"), "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 2
+        assert data["duplicate_count"] == 0
+        assert data["error_count"] == 0
+        assert len(data["errors"]) == 0
+
+        list_resp = client.get("/api/marginalia")
+        assert list_resp.json()["total"] == 2
+
+    def test_import_csv_with_duplicates(self, client):
+        csv_content = (
+            "书名,页码,原文,眉批内容,购入渠道\n"
+            "测试书名,第 1 页,重复原文,眉批内容1,孔夫子\n"
+            "测试书名,第 1 页,重复原文,眉批内容2,孔夫子\n"
+        )
+        files = {"file": ("test.csv", csv_content.encode("utf-8"), "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 1
+        assert data["duplicate_count"] == 1
+        assert data["error_count"] == 0
+
+    def test_import_csv_with_errors(self, client):
+        csv_content = (
+            "书名,页码,原文,眉批内容,购入渠道\n"
+            ",第 1 页,原文,眉批,渠道\n"
+            "书名,,原文,眉批,渠道\n"
+            "书名,第 1 页,,眉批,渠道\n"
+            "书名,第 1 页,原文,,渠道\n"
+        )
+        files = {"file": ("test.csv", csv_content.encode("utf-8"), "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 0
+        assert data["duplicate_count"] == 0
+        assert data["error_count"] == 4
+        assert len(data["errors"]) == 4
+
+    def test_import_csv_with_optional_fields(self, client):
+        csv_content = (
+            "书名,页码,原文,眉批内容,购入渠道,是否收藏,录入日期\n"
+            "测试书名,第 1 页,原文内容,眉批内容,渠道,是,2024-01-15\n"
+        )
+        files = {"file": ("test.csv", csv_content.encode("utf-8"), "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 1
+        assert data["error_count"] == 0
+
+        list_resp = client.get("/api/marginalia")
+        items = list_resp.json()["items"]
+        assert len(items) == 1
+        assert items[0]["is_favorite"] is True
+        assert items[0]["entry_date"] == "2024-01-15"
+
+    def test_import_invalid_file_type(self, client):
+        content = "not a csv content"
+        files = {"file": ("test.txt", content.encode("utf-8"), "text/plain")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 400
+
+    def test_import_empty_file(self, client):
+        files = {"file": ("test.csv", b"", "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 0
+        assert data["error_count"] == 1
+
+    def test_import_invalid_header(self, client):
+        csv_content = "错误,表头,格式\n"
+        files = {"file": ("test.csv", csv_content.encode("utf-8"), "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 0
+        assert data["error_count"] == 1
+
+    def test_import_auto_create_book(self, client):
+        csv_content = (
+            "书名,页码,原文,眉批内容,购入渠道\n"
+            "新书名,第 1 页,原文内容,眉批内容,渠道\n"
+        )
+        files = {"file": ("test.csv", csv_content.encode("utf-8"), "text/csv")}
+        response = client.post("/api/marginalia/import", files=files)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 1
+
+        books_resp = client.get("/api/books")
+        books = books_resp.json()
+        assert any(book["title"] == "新书名" for book in books)

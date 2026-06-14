@@ -129,3 +129,15 @@ class PaginatedOperationLogResponse(BaseModel):
     total: int = Field(..., description="总条数")
     page: int = Field(..., description="当前页码")
     page_size: int = Field(..., description="每页条数")
+
+
+class ImportErrorDetail(BaseModel):
+    row: int = Field(..., description="行号")
+    error: str = Field(..., description="错误原因")
+
+
+class ImportResponse(BaseModel):
+    success_count: int = Field(..., description="成功导入条数")
+    duplicate_count: int = Field(..., description="重复跳过条数")
+    error_count: int = Field(..., description="失败条数")
+    errors: list[ImportErrorDetail] = Field(default_factory=list, description="错误详情")

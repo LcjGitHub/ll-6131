@@ -2,6 +2,7 @@ import type {
   Marginalia,
   MarginaliaFormData,
   PaginatedMarginalia,
+  ImportResult,
 } from "../types/marginalia";
 import { apiClient } from "./client";
 
@@ -113,4 +114,15 @@ export async function restoreMarginalia(id: number): Promise<Marginalia> {
 
 export async function permanentDeleteMarginalia(id: number): Promise<void> {
   await apiClient.delete(`/marginalia/${id}/permanent`);
+}
+
+export async function importMarginalia(file: File): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await apiClient.post<ImportResult>("/marginalia/import", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return data;
 }

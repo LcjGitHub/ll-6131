@@ -4,6 +4,7 @@ import {
   Button,
   Checkbox,
   createListCollection,
+  Dialog,
   Heading,
   HStack,
   IconButton,
@@ -14,6 +15,7 @@ import {
   Switch,
   Table,
   Text,
+  VStack,
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
@@ -24,10 +26,11 @@ import {
   deleteMarginalia,
   exportMarginalia,
   fetchMarginaliaList,
+  importMarginalia,
   toggleFavorite,
   type SortBy,
 } from "../api/marginalia";
-import type { Marginalia } from "../types/marginalia";
+import type { Marginalia, ImportResult } from "../types/marginalia";
 
 function StarIcon({ filled }: { filled: boolean }) {
   return (
@@ -90,6 +93,11 @@ export default function ListPage() {
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [contentSearchInput, setContentSearchInput] = useState("");
@@ -287,6 +295,52 @@ export default function ListPage() {
     }
   };
 
+  const handleImportClick = () => {
+    setImportDialogOpen(true);
+    setImportResult(null);
+    setSelectedFile(null);
+    setError(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.name.toLowerCase().endsWith(".csv")) {
+        setSelectedFile(file);
+        setError(null);
+      } else {
+        setError("请选择 CSV 文件");
+        setSelectedFile(null);
+      }
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const result = await importMarginalia(selectedFile);
+      setImportResult(result);
+      if (result.success_count > 0) {
+        void loadItems();
+      }
+    } catch {
+      setError("导入失败，请确认后端服务已启动（端口 3000）");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleCloseImportDialog = () => {
+    setImportDialogOpen(false);
+    setImportResult(null);
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
 
   const handlePageChange = (newPage: number) => {
@@ -352,6 +406,12 @@ export default function ListPage() {
             loadingText="导出中…"
           >
             导出
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleImportClick}
+          >
+            导入
           </Button>
         </HStack>
         <Button asChild colorPalette="teal">
@@ -695,6 +755,134 @@ export default function ListPage() {
           </HStack>
         </HStack>
       )}
+
+      <Dialog.Root open={importDialogOpen} onOpenChange={(e) => !e.open && handleCloseImportDialog()}>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <Dialog.Header>
+              <Dialog.Title>批量导入摘录</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Body>
+              {!importResult ? (
+                <VStack gap={4} align="stretch">
+                  <Text fontSize="sm" color="gray.600">
+                    请选择包含书名、页码、原文、眉批内容、购入渠道等列的 CSV 文件。
+                  </Text>
+                  <Box
+                    borderWidth="2px"
+                    borderStyle="dashed"
+                    borderColor="gray.200"
+                    borderRadius="md"
+                    p={6}
+                    textAlign="center"
+                    bg="gray.50"
+                    _hover={{ borderColor: "teal.400", bg: "gray.100" }}
+                    transition="all 0.2s"
+                    onClick={() => fileInputRef.current?.click()}
+                    cursor="pointer"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv"
+                      style={{ display: "none" }}
+                      onChange={handleFileSelect}
+                    />
+                    {selectedFile ? (
+                      <VStack gap={2}>
+                        <Text fontWeight="medium">{selectedFile.name}</Text>
+                        <Text fontSize="sm" color="gray.500">
+                          {(selectedFile.size / 1024).toFixed(2)} KB
+                        </Text>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          重新选择
+                        </Button>
+                      </VStack>
+                    ) : (
+                      <VStack gap={2}>
+                        <Text color="gray.500">点击选择文件或拖拽文件到此处</Text>
+                        <Text fontSize="xs" color="gray.400">支持 .csv 格式</Text>
+                      </VStack>
+                    )}
+                  </Box>
+                  <Text fontSize="xs" color="gray.500">
+                    CSV 文件应包含以下列：书名、页码、原文、眉批内容、购入渠道（可选）、是否收藏（可选）、录入日期（可选）
+                  </Text>
+                </VStack>
+              ) : (
+                <VStack gap={4} align="stretch">
+                  <Box p={4} bg="green.50" borderRadius="md">
+                    <Text fontWeight="medium" color="green.700" mb={2}>
+                      导入完成
+                    </Text>
+                    <VStack gap={1} align="stretch" fontSize="sm">
+                      <HStack justify="space-between">
+                        <Text color="gray.600">成功导入：</Text>
+                        <Text fontWeight="medium" color="green.600">{importResult.success_count} 条</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text color="gray.600">重复跳过：</Text>
+                        <Text fontWeight="medium" color="yellow.600">{importResult.duplicate_count} 条</Text>
+                      </HStack>
+                      <HStack justify="space-between">
+                        <Text color="gray.600">导入失败：</Text>
+                        <Text fontWeight="medium" color={importResult.error_count > 0 ? "red.600" : "gray.600"}>
+                          {importResult.error_count} 条
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                  {importResult.errors.length > 0 && (
+                    <Box>
+                      <Text fontSize="sm" fontWeight="medium" mb={2} color="red.600">
+                        错误详情：
+                      </Text>
+                      <Box
+                        maxH="200px"
+                        overflowY="auto"
+                        bg="red.50"
+                        p={3}
+                        borderRadius="md"
+                        fontSize="xs"
+                      >
+                        {importResult.errors.map((err, idx) => (
+                          <Text key={idx} color="red.700" mb={1}>
+                            第 {err.row} 行：{err.error}
+                          </Text>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </VStack>
+              )}
+            </Dialog.Body>
+            <Dialog.Footer>
+              <Button variant="ghost" onClick={handleCloseImportDialog}>
+                {importResult ? "关闭" : "取消"}
+              </Button>
+              {!importResult && (
+                <Button
+                  colorPalette="teal"
+                  onClick={() => void handleImport()}
+                  loading={importing}
+                  loadingText="导入中…"
+                  disabled={!selectedFile}
+                >
+                  开始导入
+                </Button>
+              )}
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
     </Box>
   );
 }

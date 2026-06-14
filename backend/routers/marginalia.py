@@ -2,13 +2,13 @@
 
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, date
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, cast, Integer
+from sqlalchemy import func, cast, Integer, and_
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -16,6 +16,8 @@ from models import Book, Marginalia
 from schemas import (
     BatchDeleteRequest,
     BatchDeleteResponse,
+    ImportResponse,
+    ImportErrorDetail,
     MarginaliaCreate,
     MarginaliaResponse,
     MarginaliaUpdate,
@@ -108,6 +110,161 @@ def export_marginalia(db: DbSession) -> StreamingResponse:
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
         },
+    )
+
+
+@router.post("/import", response_model=ImportResponse)
+async def import_marginalia(
+    db: DbSession,
+    file: UploadFile = File(..., description="逗号分隔值文件"),
+) -> ImportResponse:
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="请上传 CSV 文件")
+
+    content = await file.read()
+    text_content = content.decode("utf-8-sig")
+
+    if text_content.startswith("\ufeff"):
+        text_content = text_content[1:]
+
+    reader = csv.reader(io.StringIO(text_content))
+
+    try:
+        header = next(reader)
+    except StopIteration:
+        return ImportResponse(
+            success_count=0,
+            duplicate_count=0,
+            error_count=1,
+            errors=[ImportErrorDetail(row=1, error="CSV 文件为空")],
+        )
+
+    header_lower = [h.strip() for h in header]
+
+    expected = ["书名", "页码", "原文", "眉批内容", "购入渠道"]
+    if len(header_lower) < len(expected):
+        return ImportResponse(
+            success_count=0,
+            duplicate_count=0,
+            error_count=1,
+            errors=[ImportErrorDetail(row=1, error=f"CSV 表头格式错误，至少需要包含：书名、页码、原文、眉批内容、购入渠道")]
+        )
+
+    idx_title = header_lower.index("书名")
+    idx_page = header_lower.index("页码")
+    idx_original = header_lower.index("原文")
+    idx_marginalia = header_lower.index("眉批内容")
+    idx_channel = header_lower.index("购入渠道")
+
+    idx_favorite = header_lower.index("是否收藏") if "是否收藏" in header_lower else None
+    idx_date = header_lower.index("录入日期") if "录入日期" in header_lower else None
+
+    success_count = 0
+    duplicate_count = 0
+    error_count = 0
+    errors: list[ImportErrorDetail] = []
+
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            if not any(cell.strip() for cell in row):
+                continue
+
+            title = row[idx_title].strip() if idx_title < len(row) else ""
+            page = row[idx_page].strip() if idx_page < len(row) else ""
+            original_text = row[idx_original].strip() if idx_original < len(row) else ""
+            marginalia_content = row[idx_marginalia].strip() if idx_marginalia < len(row) else ""
+            purchase_channel = row[idx_channel].strip() if idx_channel < len(row) else ""
+
+            if not title:
+                error_count += 1
+                errors.append(ImportErrorDetail(row=row_num, error="书名字段不能为空"))
+                continue
+            if not page:
+                error_count += 1
+                errors.append(ImportErrorDetail(row=row_num, error="页码字段不能为空"))
+                continue
+            if not original_text:
+                error_count += 1
+                errors.append(ImportErrorDetail(row=row_num, error="原文字段不能为空"))
+                continue
+            if not marginalia_content:
+                error_count += 1
+                errors.append(ImportErrorDetail(row=row_num, error="眉批内容字段不能为空"))
+                continue
+
+            existing = db.query(Marginalia).filter(
+                and_(
+                    Marginalia.book_title == title,
+                    Marginalia.page_number == page,
+                    Marginalia.original_text == original_text,
+                    Marginalia.is_deleted == False,
+                )
+            ).first()
+
+            if existing:
+                duplicate_count += 1
+                continue
+
+            book = db.query(Book).filter(func.lower(Book.title) == func.lower(title)).first()
+            if not book:
+                book = Book(
+                    title=title,
+                    author="未知",
+                    edition=None,
+                    volume_count=1,
+                )
+                db.add(book)
+                db.flush()
+
+            is_favorite = False
+            if idx_favorite is not None and idx_favorite < len(row):
+                fav_value = row[idx_favorite].strip()
+                is_favorite = fav_value in ["是", "true", "True", "1", "yes"]
+
+            entry_date = date.today()
+            if idx_date is not None and idx_date < len(row):
+                date_str = row[idx_date].strip()
+                if date_str:
+                    try:
+                        entry_date = date.fromisoformat(date_str)
+                    except ValueError:
+                        pass
+
+            item = Marginalia(
+                book_id=book.id,
+                book_title=book.title,
+                page_number=page,
+                original_text=original_text,
+                marginalia_content=marginalia_content,
+                purchase_channel=purchase_channel or None,
+                is_favorite=is_favorite,
+                entry_date=entry_date,
+                tags=[],
+            )
+            db.add(item)
+            db.flush()
+
+            create_operation_log(
+                db,
+                operation_type="create",
+                target_type="marginalia",
+                target_id=item.id,
+                summary=f"批量导入：《{item.book_title}》第{item.page_number}页",
+            )
+
+            success_count += 1
+
+        except Exception as e:
+            error_count += 1
+            errors.append(ImportErrorDetail(row=row_num, error=f"处理失败：{str(e)}"))
+
+    db.commit()
+
+    return ImportResponse(
+        success_count=success_count,
+        duplicate_count=duplicate_count,
+        error_count=error_count,
+        errors=errors,
     )
 
 

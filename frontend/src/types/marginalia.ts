@@ -34,3 +34,15 @@ export interface PaginatedMarginalia {
   page: number;
   page_size: number;
 }
+
+export interface ImportErrorDetail {
+  row: number;
+  error: string;
+}
+
+export interface ImportResult {
+  success_count: number;
+  duplicate_count: number;
+  error_count: number;
+  errors: ImportErrorDetail[];
+}
