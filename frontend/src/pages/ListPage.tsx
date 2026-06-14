@@ -30,7 +30,9 @@ import {
   toggleFavorite,
   type SortBy,
 } from "../api/marginalia";
+import { fetchTagList } from "../api/tag";
 import type { Marginalia, ImportResult } from "../types/marginalia";
+import type { Tag } from "../types/tag";
 
 function StarIcon({ filled }: { filled: boolean }) {
   return (
@@ -78,6 +80,7 @@ interface ListQuery {
   bookTitle: string | undefined;
   contentKeyword: string | undefined;
   isFavorite: boolean | undefined;
+  tagId: number | undefined;
   sortBy: SortBy;
   page: number;
   pageSize: number;
@@ -102,11 +105,15 @@ export default function ListPage() {
   const [searchInput, setSearchInput] = useState("");
   const [contentSearchInput, setContentSearchInput] = useState("");
   const [onlyFavoritesInput, setOnlyFavoritesInput] = useState(false);
+  const [selectedTagId, setSelectedTagId] = useState<number | undefined>(undefined);
+  const [tagList, setTagList] = useState<Tag[]>([]);
+  const [tagListLoading, setTagListLoading] = useState(false);
 
   const [query, setQuery] = useState<ListQuery>({
     bookTitle: undefined,
     contentKeyword: undefined,
     isFavorite: undefined,
+    tagId: undefined,
     sortBy: "default",
     page: 1,
     pageSize: 10,
@@ -123,6 +130,7 @@ export default function ListPage() {
         query.bookTitle,
         query.contentKeyword,
         query.isFavorite,
+        query.tagId,
         query.sortBy,
         query.page,
         query.pageSize,
@@ -140,9 +148,25 @@ export default function ListPage() {
     }
   }, [query]);
 
+  const loadTags = useCallback(async () => {
+    setTagListLoading(true);
+    try {
+      const tags = await fetchTagList();
+      setTagList(tags);
+    } catch {
+      setError("加载标签列表失败，请确认后端服务已启动（端口 3000）");
+    } finally {
+      setTagListLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    void loadTags();
+  }, [loadTags]);
 
   const handleSearch = () => {
     setSelectedIds(new Set());
@@ -151,6 +175,17 @@ export default function ListPage() {
       bookTitle: searchInput.trim() || undefined,
       contentKeyword: contentSearchInput.trim() || undefined,
       isFavorite: onlyFavoritesInput ? true : undefined,
+      tagId: selectedTagId,
+      page: 1,
+    }));
+  };
+
+  const handleTagChange = (tagId: number | undefined) => {
+    setSelectedTagId(tagId);
+    setSelectedIds(new Set());
+    setQuery((prev) => ({
+      ...prev,
+      tagId,
       page: 1,
     }));
   };
@@ -379,15 +414,31 @@ export default function ListPage() {
     [],
   );
 
+  const tagCollection = useMemo(
+    () =>
+      createListCollection({
+        items: [
+          { value: "all", label: "全部标签" },
+          ...tagList.map((tag) => ({
+            value: String(tag.id),
+            label: tag.name,
+          })),
+        ],
+      }),
+    [tagList],
+  );
+
   const handleReset = () => {
     setSearchInput("");
     setContentSearchInput("");
     setOnlyFavoritesInput(false);
+    setSelectedTagId(undefined);
     setSelectedIds(new Set());
     setQuery({
       bookTitle: undefined,
       contentKeyword: undefined,
       isFavorite: undefined,
+      tagId: undefined,
       sortBy: "default",
       page: 1,
       pageSize: query.pageSize,
@@ -478,6 +529,52 @@ export default function ListPage() {
         <Button variant="ghost" onClick={handleReset}>
           重置
         </Button>
+      </HStack>
+
+      <HStack mb={6} gap={3} wrap="wrap">
+        <Select.Root
+          size="sm"
+          width="200px"
+          collection={tagCollection}
+          value={[selectedTagId !== undefined ? String(selectedTagId) : "all"]}
+          onValueChange={(e) => {
+            const val = (e.value ?? [])[0];
+            if (val === "all" || val === undefined) {
+              handleTagChange(undefined);
+            } else {
+              const id = Number(val);
+              if (!Number.isNaN(id)) {
+                handleTagChange(id);
+              }
+            }
+          }}
+          positioning={{ placement: "bottom-start", sameWidth: true }}
+          disabled={tagListLoading}
+        >
+          <Select.HiddenSelect />
+          <Select.Control>
+            <Select.Trigger>
+              <Select.ValueText placeholder="选择标签…" />
+            </Select.Trigger>
+            <Select.IndicatorGroup>
+              <Select.Indicator />
+            </Select.IndicatorGroup>
+          </Select.Control>
+          <Select.Positioner>
+            <Select.Content>
+              {tagCollection.items.map((item) => (
+                <Select.Item key={item.value} item={item}>
+                  {item.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Positioner>
+        </Select.Root>
+        {query.tagId !== undefined && (
+          <Badge colorPalette="teal" variant="subtle">
+            已按标签筛选
+          </Badge>
+        )}
       </HStack>
 
       {loading && (

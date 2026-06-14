@@ -12,7 +12,7 @@ from sqlalchemy import func, cast, Integer, and_
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Book, Marginalia
+from models import Book, Marginalia, marginalia_tag
 from schemas import (
     BatchDeleteRequest,
     BatchDeleteResponse,
@@ -42,11 +42,17 @@ def list_marginalia(
     book_title: str | None = Query(None, description="按书名模糊搜索"),
     content_keyword: str | None = Query(None, description="按眉批内容模糊搜索"),
     is_favorite: bool | None = Query(None, description="仅看收藏"),
+    tag_id: int | None = Query(None, description="按标签编号筛选，只返回绑定了该标签的摘录"),
     sort_by: str | None = Query(None, description="排序方式：page_asc-页码升序，page_desc-页码降序，默认按编号倒序"),
     page: int = Query(1, ge=1, description="页码，从1开始"),
     page_size: int = Query(10, ge=1, le=100, description="每页条数"),
 ) -> PaginatedMarginaliaResponse:
     query = db.query(Marginalia).filter(Marginalia.is_deleted == False)
+    if tag_id is not None:
+        query = query.join(
+            marginalia_tag,
+            Marginalia.id == marginalia_tag.c.marginalia_id,
+        ).filter(marginalia_tag.c.tag_id == tag_id)
     if book_title:
         like = f"%{book_title}%"
         query = query.filter(Marginalia.book_title.ilike(like))
