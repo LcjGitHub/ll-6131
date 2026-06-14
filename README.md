@@ -65,6 +65,48 @@ npm run dev
 | `python` 命令不存在 | 未安装 Python | 安装 [Python 3.12](https://www.python.org/downloads/)，勾选 **Add to PATH** |
 | 端口被占用 | 3101/3000 已被占用 | 关闭占用进程或修改端口 |
 
+## 代码质量检查
+
+项目配置了 GitHub Actions CI 工作流，代码推送到主分支时会自动运行后端测试、前端类型检查和生产构建。
+
+### 本地手动检查
+
+在提交代码前，建议在本地运行以下检查步骤，与 CI 保持一致：
+
+#### 1. 后端测试
+
+```bash
+cd backend
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+#### 2. 前端类型检查
+
+```bash
+cd frontend
+npm install
+npx tsc -b --noEmit
+```
+
+#### 3. 前端生产构建
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+### CI 工作流
+
+CI 配置文件位于 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)，包含两个并行 Job：
+
+- **Backend Tests**：安装后端依赖并运行 pytest 测试套件
+- **Frontend Type Check & Build**：安装前端依赖，执行 TypeScript 类型检查和生产构建
+
+任一步骤失败都会导致整个工作流标记为失败。
+
 ## 功能
 
 - **摘录列表**：Chakra Table 展示，支持按书名搜索
